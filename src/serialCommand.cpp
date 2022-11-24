@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include "movement.h"
+#include "funcGen.h"
 
 namespace
 {
@@ -18,7 +19,7 @@ namespace
             {
                 if (toupper(cmdArgument[0]) != 'Z')
                 {
-                    Serial.printf("Error: cant parse argument: %s\n", cmdArgument);
+                    Serial.printf("ERROR: can't parse argument: %s\n", cmdArgument);
                     return;
                 }
                 int coordZ = strtol(cmdArgument + 1, NULL, 10);
@@ -43,7 +44,7 @@ namespace
             }
             default:
             {
-                Serial.printf("Error: unknown command G%i\n", cmdNumber);
+                Serial.printf("ERROR: unknown command G%i\n", cmdNumber);
             }
             }
             break;
@@ -61,14 +62,37 @@ namespace
                 stepperDisable();
                 break;
             }
+            case 100:
+            {
+                if (toupper(cmdArgument[0]) != 'S')
+                {
+                    Serial.printf("ERROR: can't parse argument: %s\n", cmdArgument);
+                    return;
+                }
+                char delimiter[] = ":/|";
+                char *on = strtok(cmdArgument + 1, delimiter);
+                char *off = strtok(NULL, delimiter);
+                if (on == NULL || off == NULL)
+                {
+                    Serial.println("ERROR: can't split argument string!");
+                    return;
+                }
+                Serial.println(on);
+                Serial.println(off);
+                unsigned long onTime = strtoul(on, NULL, 10);
+                unsigned long offTime = strtoul(off, NULL, 10);
+                Serial.printf("INFO: Set onTime: %luns offTime: %luns\n", onTime, offTime);
+                setFunc(onTime, offTime);
+                break;
+            }
             default:
             {
-                Serial.printf("Error: unknown command G%i\n", cmdNumber);
+                Serial.printf("ERROR: unknown command G%i\n", cmdNumber);
             }
             }
             break;
         default:
-            Serial.printf("Error: unknown command %c\n", cmdType);
+            Serial.printf("ERROR: unknown command %c\n", cmdType);
         }
     }
 
@@ -83,7 +107,7 @@ namespace
         char cmdType = toupper(inputBuffer[i]);
         if (!isdigit(inputBuffer[++i])) // make sure char after cmdType is letter
         {
-            Serial.printf("Error: cant parse command: %s\n", inputBuffer);
+            Serial.printf("ERROR: cant parse command: %s\n", inputBuffer);
             return;
         }
         char *cmdArgument;
@@ -110,7 +134,7 @@ namespace
             {
                 if (i >= buffSize)
                 {
-                    Serial.println("Error: serialInput buffer overflow!");
+                    Serial.println("ERROR: serialInput buffer overflow!");
                     i = 0;
                 }
                 char c = Serial.read();

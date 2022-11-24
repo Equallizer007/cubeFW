@@ -2,6 +2,8 @@
 
 /*   Debug pins: 12,13,14,15    */ 
 
+#define PIN_GENERATOR  2              // Generator Output Pin 
+
 #define PIN_Z_MIN 27                  // Min Endstop
 #define PIN_Z_MIN_DEC 26              // Min Dec Endstop
 #define PIN_Z_MAX_DEC 35              // Max Dec Endstop
