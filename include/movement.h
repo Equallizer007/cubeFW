@@ -1,6 +1,5 @@
 #pragma once
 
-
 #define DRIVER_ADDRESS 0b00 // TMC2209 Driver address according to MS1 and MS2
 #define R_SENSE 0.11f       // SilentStepStick series use 0.11Ohm
 

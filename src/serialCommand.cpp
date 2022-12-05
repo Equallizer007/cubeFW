@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <ArduinoLog.h>
 #include "movement.h"
 #include "funcGen.h"
 
@@ -11,7 +12,7 @@ namespace
         switch (cmdType)
         {
         case 'G':
-            Serial.printf("G%i command: %s\n", cmdNumber, cmdArgument);
+            Log.notice("G%i command: %s\n", cmdNumber, cmdArgument);
             switch (cmdNumber)
             {
             case 0:
@@ -19,11 +20,11 @@ namespace
             {
                 if (toupper(cmdArgument[0]) != 'Z')
                 {
-                    Serial.printf("ERROR: can't parse argument: %s\n", cmdArgument);
+                    Log.error("can't parse argument: %s\n", cmdArgument);
                     return;
                 }
                 int coordZ = strtol(cmdArgument + 1, NULL, 10);
-                Serial.printf("G%i Z with coord %i\n", cmdNumber, coordZ);
+                Log.notice("G%i Z with coord %i\n", cmdNumber, coordZ);
                 targetSteps = coordZ;
                 break;
             }
@@ -44,7 +45,7 @@ namespace
             }
             default:
             {
-                Serial.printf("ERROR: unknown command G%i\n", cmdNumber);
+                Log.error("unknown command G%i\n", cmdNumber);
             }
             }
             break;
@@ -66,7 +67,7 @@ namespace
             {
                 if (toupper(cmdArgument[0]) != 'S')
                 {
-                    Serial.printf("ERROR: can't parse argument: %s\n", cmdArgument);
+                    Log.error("can't parse argument: %s\n", cmdArgument);
                     return;
                 }
                 char delimiter[] = ":/|";
@@ -74,31 +75,49 @@ namespace
                 char *off = strtok(NULL, delimiter);
                 if (on == NULL || off == NULL)
                 {
-                    Serial.println("ERROR: can't split argument string!");
+                    Log.error("can't split argument string!\n");
                     return;
                 }
-                Serial.println(on);
-                Serial.println(off);
                 unsigned long onTime = strtoul(on, NULL, 10);
                 unsigned long offTime = strtoul(off, NULL, 10);
-                Serial.printf("INFO: Set onTime: %luns offTime: %luns\n", onTime, offTime);
+                if (onTime > 1000 && offTime > 1000)
+                {
+                    Log.notice("set onTime: %Fns offTime: %Fns\n", onTime/1000.0, offTime/1000.0);
+                }
+                else
+                {
+                    Log.notice("set onTime: %lns offTime: %lns\n", onTime, offTime);
+                }
+
                 setFunc(onTime, offTime);
+                break;
+            }
+            case 101:
+            {
+                Log.notice("set output off\n");
+                setFuncOff();
+                break;
+            }
+            case 102:
+            {
+                Log.notice("set output on\n");
+                setFuncOn();
                 break;
             }
             default:
             {
-                Serial.printf("ERROR: unknown command G%i\n", cmdNumber);
+                Log.error("unknown command G%i\n", cmdNumber);
             }
             }
             break;
         default:
-            Serial.printf("ERROR: unknown command %c\n", cmdType);
+            Log.error("unknown command %c\n", cmdType);
         }
     }
 
     void parseCmdBuffer(const char *inputBuffer)
     {
-        Serial.printf("readCmd: %s\n", inputBuffer);
+        Log.notice("readCmd: %s\n", inputBuffer);
         while (isspace(inputBuffer[0])) // skip whitespace
         {
             inputBuffer++;
@@ -107,7 +126,7 @@ namespace
         char cmdType = toupper(inputBuffer[i]);
         if (!isdigit(inputBuffer[++i])) // make sure char after cmdType is letter
         {
-            Serial.printf("ERROR: cant parse command: %s\n", inputBuffer);
+            Log.error("cant parse command: %s\n", inputBuffer);
             return;
         }
         char *cmdArgument;
@@ -124,7 +143,7 @@ namespace
 
     void serialInputTask(void *param)
     {
-        Serial.println("serialInputTask started ...");
+        Log.trace("serialInputTask started ...\n");
         char readBuffer[buffSize] = {0};
         int i = 0;
 
@@ -134,7 +153,7 @@ namespace
             {
                 if (i >= buffSize)
                 {
-                    Serial.println("ERROR: serialInput buffer overflow!");
+                    Log.error("ERROR: serialInput buffer overflow\n");
                     i = 0;
                 }
                 char c = Serial.read();
@@ -152,16 +171,14 @@ namespace
             }
             vTaskDelay(10);
         }
-        Serial.println("serialInputTask closed ...");
+        Log.trace("serialInputTask closed ...\n");
     }
 
 }
 
 void serialCmdInit()
 {
-    const char *compileDate = __DATE__ " " __TIME__;
-    Serial.begin(115200);
-    Serial.printf("\n\nCubeFW compiled at %s\n", compileDate);
+    initFunc();
     xTaskCreate(
         serialInputTask,   /* Task function. */
         "serialInputTask", /* String with name of task. */

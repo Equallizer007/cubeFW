@@ -1,75 +1,198 @@
-#include "funcGen.h"
-#include "pinDefs.h"
-#include <Arduino.h>
+#include "funcGen.h"    // include the corresponding header file
+#include "pinDefs.h"    // include the pin definitions
+#include <Arduino.h>    // include the Arduino library
+#include <ArduinoLog.h> // include the ArduinoLog library for logging functionality
 
+// Define some constants that specify the hardware limits of the ESP32
 namespace
 {
-    // ESP32 Hardware Limits
-    const int F_10_BIT = 80000;
-    const int F_8_BIT = 300000;
-    const int F_6_BIT = 1200000;
-    const int F_4_BIT = 5000000;
+    const int F_10_BIT = 80000;  // Maximum frequency for 10-bit resolution
+    const int F_8_BIT = 300000;  // Maximum frequency for 8-bit resolution
+    const int F_6_BIT = 1200000; // Maximum frequency for 6-bit resolution
+    const int F_4_BIT = 5000000; // Maximum frequency for 4-bit resolution
 
-    const int MIN_WIDTH_NS = 62;
-    const float ERROR_RATIO = 0.1;
-
+    const int MIN_WIDTH_NS = 62;   // Minimum pulse width in nanoseconds
+    const float ERROR_RATIO = 0.1; // Maximum allowed error ratio
 }
 
-// arguments in ns
-bool setFunc(unsigned long onTime, unsigned long offTime)
+// Initialize the output pin and its inverse
+void initFunc()
 {
-    if (onTime < MIN_WIDTH_NS || offTime < MIN_WIDTH_NS)
-    {
-        Serial.printf("ERROR: ontime and offtime must not be < %i!\n", MIN_WIDTH_NS);
-        return false;
-    }
-    int expErrorOn = onTime - (onTime / MIN_WIDTH_NS) * MIN_WIDTH_NS;
-    int expErrorOff = offTime - (offTime / MIN_WIDTH_NS) * MIN_WIDTH_NS;
-    float expErrorOnRatio = (float)expErrorOn / onTime;
-    float expErrorOffRatio = (float)expErrorOff / offTime;
+    pinMode(PIN_GENERATOR, OUTPUT);
+    digitalWrite(PIN_GENERATOR, LOW);
+    pinMode(PIN_GENERATOR_INV, OUTPUT);
+    digitalWrite(PIN_GENERATOR_INV, HIGH);
+}
 
-    Serial.printf("INFO: expError: on: %ins (%f) off %ins (%f)\n",
-                  expErrorOn, expErrorOnRatio, expErrorOff, expErrorOffRatio);
-    if (expErrorOnRatio > ERROR_RATIO || expErrorOffRatio > ERROR_RATIO)
-    {
-        Serial.println("ERROR: Expected frequency error to high!");
-        return false;
-    }
+// Set the output pin and its inverse to high and low, respectively
+void setFuncOn()
+{
+    ledcDetachPin(PIN_GENERATOR);
+    digitalWrite(PIN_GENERATOR, HIGH);
+    ledcDetachPin(PIN_GENERATOR_INV);
+    digitalWrite(PIN_GENERATOR_INV, LOW);
+}
 
-    long freq = 1000000000 / (onTime + offTime);
-    // set bit resolution;
-    unsigned bitres;
-    if (freq <= F_10_BIT)
-        bitres = 10;
-    else if (freq <= F_8_BIT)
-        bitres = 8;
-    else if (freq < F_6_BIT)
-        bitres = 6;
-    else if (freq < F_4_BIT)
-        bitres = 4;
-    else if (onTime == offTime)
-        bitres = 1;
-    else
-    {
-        Serial.println("ERROR: requested frequency to high!");
-        return false;
-    }
-
-    unsigned duty = (onTime * pow(2, bitres)) / (onTime + offTime);
-    if (duty == 0)
-    {
-        Serial.println("ERROR: dutycycle must not be 0!");
-        return false;
-    }
-    Serial.printf("INFO: set freq: %lu bitres %lu duty: %u\n", freq, bitres, duty);
-
-    // Make sure outputpin is available and low
+// Set the output pin and its inverse to low and high, respectively
+void setFuncOff()
+{
     ledcDetachPin(PIN_GENERATOR);
     digitalWrite(PIN_GENERATOR, LOW);
+    ledcDetachPin(PIN_GENERATOR_INV);
+    digitalWrite(PIN_GENERATOR_INV, HIGH);
+}
 
-    // attach pin to timer 0 and set frequency and dutycycle
-    ledcAttachPin(PIN_GENERATOR, 0);
-    ledcSetup(0, freq, bitres);
-    ledcWrite(0, duty);
+// Check if thethe expected pulse length error is bigger then the accepted Error
+// Arguments:
+//   pulseLength: pulse width in nanoseconds
+// Returns: true if the error is smaller then the treshold, false otherwise
+bool checkExpectedError(long pulselength)
+{
+    int expError = pulselength - (pulselength / MIN_WIDTH_NS) * MIN_WIDTH_NS;
+    float expErrorRatio = (float)expError / pulselength;
+    Log.notice("expError: %ins (%F)\n", expError, expErrorRatio);
+    if (expErrorRatio > ERROR_RATIO)
+    {
+        Log.error("expected pulse length error to high!");
+        return false;
+    }
     return true;
 }
+
+// Check if the pulse widths are less than the minimum allowed pulse width
+// Arguments:
+//   onTime: pulse width in nanoseconds
+//   offTime: pulse width in nanoseconds
+// Returns: true if pulse widths are valid, false otherwise
+bool checkPulseWidths(unsigned long onTime, unsigned long offTime)
+{
+    // Check if the pulse widths are less than the minimum allowed pulse width
+    if (onTime < MIN_WIDTH_NS || offTime < MIN_WIDTH_NS)
+    {
+        Log.error("ontime and offtime must not be < %i!\n", MIN_WIDTH_NS);
+        return false;
+    }
+    return true;
+}
+
+// Calculate the frequency of the output signal
+// Arguments:
+//   onTime: pulse width in nanoseconds
+//   offTime: pulse width in nanoseconds
+// Returns: frequency of the output signal
+long calcFrequency(unsigned long onTime, unsigned long offTime)
+{
+    return 1000000000 / (onTime + offTime);
+}
+
+// Calculate the dutycycle of the output signal
+// Arguments:
+//   onTime: pulse width in nanoseconds
+//   offTime: pulse width in nanoseconds
+//   bitres: bit resolution of the output signal
+// Returns: dutycycle of the output signal
+unsigned calcDuty(unsigned long onTime, unsigned long offTime, unsigned bitres)
+{
+    return (onTime * pow(2, bitres)) / (onTime + offTime);
+}
+
+// Get the bit resolution of the output signal based on the calculated frequency
+// Arguments:
+//   freq: frequency of the output signal
+//   onTime: pulse width in nanoseconds
+//   offTime: pulse width in nanoseconds
+// Returns: bit resolution of the output signal
+unsigned getBitResolution(long freq, long onTime, long offTime)
+{
+    if (freq <= F_10_BIT)
+        return (10);
+    else if (freq <= F_8_BIT)
+        return (8);
+    else if (freq < F_6_BIT)
+        return (6);
+    else if (freq < F_4_BIT)
+        return (4);
+    else if (onTime == offTime)
+        return (1);
+    else
+    {
+        Log.error("requested frequency to high!");
+        return 0;
+    }
+}
+
+// Set the output signal
+// Arguments:
+//   freq: frequency of the output signal
+//   bitres: bit resolution of the output signal
+//   duty: dutycycle of the output signal
+void setOutput(unsigned long freq, unsigned bitres, unsigned duty)
+{
+    Log.notice("set freq: %l bitres %l duty: %u\n", freq, bitres, duty);
+    // Make sure outputpin is available and low
+    setFuncOff();
+
+    // attach output pins to timer 0 and set frequency and dutycycle
+    ledcAttachPin(PIN_GENERATOR, 0);
+    ledcSetup(0, freq, bitres);
+    ledcAttachPin(PIN_GENERATOR_INV, 0);
+    GPIO.func_out_sel_cfg[PIN_GENERATOR_INV].inv_sel = 1;
+    ledcSetup(0, freq, bitres);
+    ledcWrite(0, duty);
+}
+
+// Set the function generator to a specific frequency and duty cycle
+// Arguments:
+//   onTime: pulse width in nanoseconds
+//   offTime: pulse width in nanoseconds
+// Returns: true if successful, false otherwise
+bool setFunc(unsigned long onTime, unsigned long offTime)
+{
+    // Check if the onTime or offTime is 0, and set the output pin and its inverse accordingly
+    if (onTime == 0)
+    {
+        Log.notice("ontime is 0 -> set output off \n");
+        setFuncOff();
+        return true;
+    }
+    if (offTime == 0)
+    {
+        Log.notice("offtime is 0 -> set output on \n");
+        setFuncOn();
+        return true;
+    }
+
+    // Check if the pulse widths are less than the minimum allowed pulse width
+    if (!checkPulseWidths(onTime, offTime))
+    {
+        return false;
+    }
+
+    // Check if the expected error ratio is above the maximum allowed error ratio
+    if (!checkExpectedError(onTime) || !checkExpectedError(offTime))
+    {
+        return false;
+    }
+
+    // Calculate the frequency of the output signal
+    long freq = calcFrequency(onTime, offTime);
+    Log.notice("frequency: %lhz\n", freq);
+
+    // Set the bit resolution of the output signal based on the calculated frequency
+    unsigned bitres = getBitResolution(freq, onTime, offTime);
+    Log.notice("bit resolution: %i\n", bitres);
+
+    // Calculate the duty cycle of the output signal
+    unsigned duty = calcDuty(onTime, offTime, bitres);
+    if (duty == 0)
+    {
+        Log.error("dutycycle must not be 0!");
+        return false;
+    }
+
+    // Set the output signal
+    setOutput(freq, bitres, duty);
+    return true;
+}
+
+// M100 S1500:40000

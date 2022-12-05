@@ -4,6 +4,7 @@
 #include <TMCStepper.h>
 #include <SpeedyStepper.h>
 #include <ESP32Encoder.h>
+#include <ArduinoLog.h>
 
 bool homingFlag = false, stopFlag = false;
 unsigned int targetSteps = 0;
@@ -61,13 +62,13 @@ bool stepperSetup()
     driver.microsteps(0);                        // Set it to 0 to test the connection
     if (driver.microsteps() != 0)
     {
-        Serial.println("ERROR: TMC connection error!");
+        Log.error("TMC connection error!");
         return false;
     }
     driver.microsteps(STEPPER_MICROSTEPS); // Set microsteps 0->fullStep
     if (driver.microsteps() != STEPPER_MICROSTEPS)
     {
-        Serial.println("ERROR: could not set microstepping value!");
+        Log.error("could not set microstepping value!");
         return false;
     }
 
@@ -83,7 +84,7 @@ bool stepperSetup()
     encoder.attachFullQuad(PIN_Z_CH_A, PIN_Z_CH_B);
     encoder.setCount(0);
 
-    Serial.println("INFO: Stepper Initialized");
+    Log.notice("stepper Initialized");
     xTaskCreate(
         movementTask,   /* Task function. */
         "movementTask", /* String with name of task. */
@@ -97,7 +98,7 @@ bool stepperSetup()
 bool stepperHome(bool dir)
 {
     stepperEnable();
-    Serial.printf("INFO: homing to %s ...\n", dir ? "max" : "min");
+    Log.notice("homing to %s ...\n", dir ? "max" : "min");
     bool limitSwitchFlag = false;
     const int sensorPin = dir ? PIN_Z_MAX_DEC : PIN_Z_MIN_DEC;
     stepper.setAccelerationInMillimetersPerSecondPerSecond(STEPPER_ACC_HOME);
@@ -107,7 +108,7 @@ bool stepperHome(bool dir)
     // If switch already triggered back off first
     if (digitalRead(sensorPin) == HIGH && digitalRead(sensorPin) == HIGH)
     {
-        Serial.println("INFO: move away from switch");
+        Log.notice("move away from switch");
         stepper.setupRelativeMoveInMillimeters(STEPPER_BUMP_DIST * (dir ? -1 : 1));
         while (!stepper.processMovement())
         {
@@ -115,20 +116,19 @@ bool stepperHome(bool dir)
         delay(25);
         if (digitalRead(sensorPin) == HIGH && digitalRead(sensorPin))
         {
-            Serial.println("ERROR: Endstop never released!");
+            Log.error("endstop never released!");
             return false;
         }
     }
 
     // Move towards Switch
-    Serial.println("INFO: moving towards switch...");
+    Log.notice("moving towards switch...");
     stepper.setupRelativeMoveInMillimeters((STEPPER_LEN_LINEAR_AXIS + 5) * (dir ? 1 : -1));
     while (!stepper.processMovement())
     {
         if (digitalRead(sensorPin) == HIGH && digitalRead(sensorPin) == HIGH)
         {
-            Serial.println(digitalRead(sensorPin) == HIGH);
-            Serial.printf("INFO: Endstop %i triggered min:%i, max:%i\n", sensorPin, digitalRead(PIN_Z_MIN_DEC), digitalRead(PIN_Z_MAX_DEC));
+            Log.notice("endstop %i triggered min:%i, max:%i\n", sensorPin, digitalRead(PIN_Z_MIN_DEC), digitalRead(PIN_Z_MAX_DEC));
             limitSwitchFlag = true;
             break;
         }
@@ -136,22 +136,22 @@ bool stepperHome(bool dir)
     delay(25);
     if (limitSwitchFlag != true)
     {
-        Serial.println("ERROR: Endstop never triggered!");
+        Log.error("endstop never triggered!");
         return (false);
     }
     float newPos = dir ? STEPPER_LEN_LINEAR_AXIS : 0;
-    Serial.printf("INFO: Set new pos: %f\n", newPos);
+    Log.notice("set new pos: %f\n", newPos);
     stepper.setCurrentPositionInMillimeters(newPos);
     stepper.setAccelerationInMillimetersPerSecondPerSecond(STEPPER_ACC_DEFAULT);
     stepper.setSpeedInMillimetersPerSecond(STEPPER_SPEED_DEFAULT);
-    Serial.println("INFO: homing complete");
+    Log.notice("homing complete");
     stepperStop();
     return true;
 }
 
 void movementTask(void *param)
 {
-    Serial.println("INFO: movementTask started ...");
+    Log.trace("movementTask started ...");
     bool moveStarted = false;
     for (;;)
     {
@@ -159,7 +159,7 @@ void movementTask(void *param)
         {
             stepperHome(false);
             delay(200);
-            Serial.println("INFO: encoder set to 0");
+            Log.notice("encoder set to 0");
             homingFlag = false;
             encoder.setCount(0);
             targetSteps = 0;
@@ -171,7 +171,7 @@ void movementTask(void *param)
             if (moveStarted)
             {
                 stepperStop();
-                Serial.printf("INFO: move finished curr: %i, tar: %i\n", currentSteps, curTargetSteps);
+                Log.notice("move finished curr: %i, tar: %i\n", currentSteps, curTargetSteps);
                 moveStarted = false;
             }
             else if (curTargetSteps != currentSteps)
@@ -179,7 +179,7 @@ void movementTask(void *param)
                 int stepsToTake = ((curTargetSteps - currentSteps) * mcFactor() * STEPPER_STEPS_PER_MM) / ENCODER_STEPS_PER_MM;
                 if (stepsToTake == 0)
                     continue;
-                Serial.printf("INFO: move started curr: %i, tar: %i steps:%i\n", currentSteps, curTargetSteps, stepsToTake);
+                Log.notice("move started curr: %i, tar: %i steps:%i\n", currentSteps, curTargetSteps, stepsToTake);
                 stepper.setupRelativeMoveInSteps(stepsToTake);
                 moveStarted = true;
             }
@@ -199,5 +199,5 @@ void movementTask(void *param)
             vTaskDelay(0);
         }
     }
-    Serial.println("INFO: movementTask stopped ...");
+    Log.trace("movementTask stopped ...");
 }
