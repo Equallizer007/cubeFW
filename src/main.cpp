@@ -3,6 +3,7 @@
 #include "logging.h"       // include the logging.h file for logging setup
 #include "serialCommand.h" // include the serialCommand.h file for serial command functionality
 #include "movement.h"      // include the movement.h file for movement functionality
+#include "adc.h"           // include the adc.h file for communicating with the adc
 
 void setup()
 {
@@ -11,6 +12,7 @@ void setup()
   Log.trace("CubeFW compiled at %s\n", __DATE__ " " __TIME__);
   serialCmdInit();
   stepperSetup();
+  initADC();
 }
 
 void loop()

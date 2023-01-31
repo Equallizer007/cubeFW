@@ -47,12 +47,14 @@ void stepperStop()
     }
 }
 
-bool stepperSetup()
+bool ddigitalRead(unsigned pin)
 {
-    pinMode(PIN_Z_MIN_DEC, INPUT_PULLUP);
-    pinMode(PIN_Z_MAX_DEC, INPUT_PULLUP);
-    pinMode(PIN_Z_EN, OUTPUT);
+    // Always check two times to prevent stray signals from the hall sensors
+    return (digitalRead(pin) == HIGH && digitalRead(pin) == HIGH);
+}
 
+bool tmcSetup()
+{
     TMC_Z_SERIAL.begin(115200);                  // INITIALIZE UART TMC2209
     driver.begin();                              // Initialize driver
     driver.toff(5);                              // Enables driver in software
@@ -62,16 +64,26 @@ bool stepperSetup()
     driver.microsteps(0);                        // Set it to 0 to test the connection
     if (driver.microsteps() != 0)
     {
-        Log.error("TMC connection error!");
+        Log.error("TMC connection error!\n");
         return false;
     }
     driver.microsteps(STEPPER_MICROSTEPS); // Set microsteps 0->fullStep
     if (driver.microsteps() != STEPPER_MICROSTEPS)
     {
-        Log.error("could not set microstepping value!");
+        Log.error("could not set TMC microstepping value!\n");
         return false;
     }
+    return true;
+}
 
+bool stepperSetup()
+{
+    pinMode(PIN_Z_MIN_DEC, INPUT_PULLUP);
+    pinMode(PIN_Z_MAX_DEC, INPUT_PULLUP);
+    pinMode(PIN_Z_EN, OUTPUT);
+    stepperDisable();
+    if (!tmcSetup())
+        return false;
     stepper.connectToPins(PIN_Z_STEP, PIN_Z_DIR); // INITIALIZE SpeedyStepper
     stepper.setStepsPerRevolution(STEPPER_STEPS_PER_REVOLUTION * mcFactor());
     stepper.setStepsPerMillimeter(STEPPER_STEPS_PER_MM * mcFactor());
@@ -83,8 +95,9 @@ bool stepperSetup()
     // encoder.attachHalfQuad(PIN_Z_CH_A, PIN_Z_CH_B);
     encoder.attachFullQuad(PIN_Z_CH_A, PIN_Z_CH_B);
     encoder.setCount(0);
+    Log.notice("stepper Initialized\n");
 
-    Log.notice("stepper Initialized");
+    // start movement task
     xTaskCreate(
         movementTask,   /* Task function. */
         "movementTask", /* String with name of task. */
@@ -104,29 +117,28 @@ bool stepperHome(bool dir)
     stepper.setAccelerationInMillimetersPerSecondPerSecond(STEPPER_ACC_HOME);
     stepper.setSpeedInMillimetersPerSecond(STEPPER_SPEED_HOMING);
 
-    // Always check two times to prevent stray signals from the hall sensors
     // If switch already triggered back off first
-    if (digitalRead(sensorPin) == HIGH && digitalRead(sensorPin) == HIGH)
+    if (ddigitalRead(sensorPin) == HIGH)
     {
-        Log.notice("move away from switch");
+        Log.notice("move away from switch\n");
         stepper.setupRelativeMoveInMillimeters(STEPPER_BUMP_DIST * (dir ? -1 : 1));
         while (!stepper.processMovement())
         {
         }
         delay(25);
-        if (digitalRead(sensorPin) == HIGH && digitalRead(sensorPin))
+        if (ddigitalRead(sensorPin) == HIGH)
         {
-            Log.error("endstop never released!");
+            Log.error("endstop never released!\n");
             return false;
         }
     }
 
     // Move towards Switch
-    Log.notice("moving towards switch...");
+    Log.notice("moving towards switch...\n");
     stepper.setupRelativeMoveInMillimeters((STEPPER_LEN_LINEAR_AXIS + 5) * (dir ? 1 : -1));
     while (!stepper.processMovement())
     {
-        if (digitalRead(sensorPin) == HIGH && digitalRead(sensorPin) == HIGH)
+        if (ddigitalRead(sensorPin) == HIGH)
         {
             Log.notice("endstop %i triggered min:%i, max:%i\n", sensorPin, digitalRead(PIN_Z_MIN_DEC), digitalRead(PIN_Z_MAX_DEC));
             limitSwitchFlag = true;
@@ -136,7 +148,7 @@ bool stepperHome(bool dir)
     delay(25);
     if (limitSwitchFlag != true)
     {
-        Log.error("endstop never triggered!");
+        Log.error("endstop never triggered!\n");
         return (false);
     }
     float newPos = dir ? STEPPER_LEN_LINEAR_AXIS : 0;
@@ -144,22 +156,23 @@ bool stepperHome(bool dir)
     stepper.setCurrentPositionInMillimeters(newPos);
     stepper.setAccelerationInMillimetersPerSecondPerSecond(STEPPER_ACC_DEFAULT);
     stepper.setSpeedInMillimetersPerSecond(STEPPER_SPEED_DEFAULT);
-    Log.notice("homing complete");
+    Log.notice("homing complete\n");
     stepperStop();
     return true;
 }
 
 void movementTask(void *param)
 {
-    Log.trace("movementTask started ...");
+    Log.trace("movementTask started ...\n");
     bool moveStarted = false;
     for (;;)
     {
+        // check if home command was received
         if (homingFlag)
         {
             stepperHome(false);
             delay(200);
-            Log.notice("encoder set to 0");
+            Log.notice("encoder set to 0\n");
             homingFlag = false;
             encoder.setCount(0);
             targetSteps = 0;
@@ -168,17 +181,34 @@ void movementTask(void *param)
         long curTargetSteps = targetSteps;
         if (stepper.motionComplete() && digitalRead(PIN_Z_EN) == LOW)
         {
+            // if the last move is complete and the stepper enabled
             if (moveStarted)
             {
                 stepperStop();
-                Log.notice("move finished curr: %i, tar: %i\n", currentSteps, curTargetSteps);
+                currentSteps = encoder.getCount();
+                long coords = round(currentSteps * 1000.0 / ENCODER_STEPS_PER_MM);
+                Log.notice("move finished curr: %i, tar: %i (%l)\n", currentSteps, curTargetSteps, coords);
                 moveStarted = false;
             }
             else if (curTargetSteps != currentSteps)
             {
                 int stepsToTake = ((curTargetSteps - currentSteps) * mcFactor() * STEPPER_STEPS_PER_MM) / ENCODER_STEPS_PER_MM;
                 if (stepsToTake == 0)
+                {
                     continue;
+                }
+                if (abs(curTargetSteps - currentSteps) < ENCODER_STEPS_PER_MM)
+                {
+                    // Slower speed if distance is < 1mm
+                    Log.notice("move using slower speeds\n");
+                    stepper.setAccelerationInMillimetersPerSecondPerSecond(STEPPER_ACC_DEFAULT / 3.0);
+                    stepper.setSpeedInMillimetersPerSecond(STEPPER_SPEED_DEFAULT / 3.0);
+                }
+                else
+                {
+                    stepper.setAccelerationInMillimetersPerSecondPerSecond(STEPPER_ACC_DEFAULT);
+                    stepper.setSpeedInMillimetersPerSecond(STEPPER_SPEED_DEFAULT);
+                }
                 Log.notice("move started curr: %i, tar: %i steps:%i\n", currentSteps, curTargetSteps, stepsToTake);
                 stepper.setupRelativeMoveInSteps(stepsToTake);
                 moveStarted = true;
@@ -190,14 +220,33 @@ void movementTask(void *param)
         }
         else if (!stepper.motionComplete())
         {
+            // if the last move was not complete
             // Serial.printf("curr: %i, tar: %i\n", currentSteps, curTargetSteps);
-            stepper.processMovement();
+
+            // check for endstops
+            if (curTargetSteps > currentSteps && ddigitalRead(PIN_Z_MAX_DEC) == HIGH)
+            {
+                Log.error("Movement canceld because max endstop was triggered!\n");
+                targetSteps = currentSteps;
+                stepperStop();
+            }
+            else if (curTargetSteps < currentSteps && ddigitalRead(PIN_Z_MIN_DEC) == HIGH)
+            {
+                Log.error("Movement canceld because min endstop was triggered!\n");
+                targetSteps = currentSteps;
+                stepperStop();
+            }
+            else
+            {
+                stepper.processMovement();
+            }
         }
         else
         {
+            // if the stepper is disabled
             stepperStop();
             vTaskDelay(0);
         }
     }
-    Log.trace("movementTask stopped ...");
+    Log.trace("movementTask stopped ...\n");
 }

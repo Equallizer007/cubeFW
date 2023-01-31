@@ -2,6 +2,7 @@
 #include "pinDefs.h"    // include the pin definitions
 #include <Arduino.h>    // include the Arduino library
 #include <ArduinoLog.h> // include the ArduinoLog library for logging functionality
+#include "adc.h"
 
 // Define some constants that specify the hardware limits of the ESP32
 namespace
@@ -192,6 +193,7 @@ bool setFunc(unsigned long onTime, unsigned long offTime)
 
     // Set the output signal
     setOutput(freq, bitres, duty);
+    activateADCinterrupt();
     return true;
 }
 

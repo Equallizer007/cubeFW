@@ -3,9 +3,12 @@
 #include "movement.h"
 #include "funcGen.h"
 
+extern double adcVoltage;
+
 namespace
 {
     const int buffSize = 100;
+    bool relativePositioning = true;
 
     void parseCmd(char cmdType, int cmdNumber, char *cmdArgument)
     {
@@ -23,8 +26,19 @@ namespace
                     Log.error("can't parse argument: %s\n", cmdArgument);
                     return;
                 }
-                int coordZ = strtol(cmdArgument + 1, NULL, 10);
-                Log.notice("G%i Z with coord %i\n", cmdNumber, coordZ);
+                long coordZ = strtod(cmdArgument + 1, NULL) * (ENCODER_STEPS_PER_MM / 1000.0);
+                Log.notice("read G%i Z with encoder steps %i\n", cmdNumber, coordZ);
+                if (abs(coordZ) > ENCODER_STEPS_PER_MM * STEPPER_LEN_LINEAR_AXIS)
+                {
+                    Log.error("illegal command to many steps!\n");
+                    return;
+                }
+                unsigned currentSteps = targetSteps;
+                Log.notice("targetSteps : %i\n", currentSteps);
+                if (relativePositioning)
+                {
+                    coordZ += currentSteps;
+                }
                 targetSteps = coordZ;
                 break;
             }
@@ -36,11 +50,15 @@ namespace
             case 90:
             {
                 // absolute positioning
+                relativePositioning = false;
+                Log.notice("absolute positioning enabled\n");
                 break;
             }
             case 91:
             {
                 // relative positioning
+                relativePositioning = true;
+                Log.notice("relative positioning enabled\n");
                 break;
             }
             default:
@@ -82,7 +100,7 @@ namespace
                 unsigned long offTime = strtoul(off, NULL, 10);
                 if (onTime > 1000 && offTime > 1000)
                 {
-                    Log.notice("set onTime: %Fns offTime: %Fns\n", onTime/1000.0, offTime/1000.0);
+                    Log.notice("set onTime: %Fns offTime: %Fns\n", onTime / 1000.0, offTime / 1000.0);
                 }
                 else
                 {
@@ -146,6 +164,7 @@ namespace
         Log.trace("serialInputTask started ...\n");
         char readBuffer[buffSize] = {0};
         int i = 0;
+        auto reportTimer = millis();
 
         for (;;)
         {
@@ -168,6 +187,12 @@ namespace
                     i = 0;
                     break;
                 }
+            }
+            if (millis() - reportTimer > 1000)
+            {
+                Serial.print("voltage: ");
+                Serial.println(adcVoltage);
+                reportTimer = millis();
             }
             vTaskDelay(10);
         }
