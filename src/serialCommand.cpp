@@ -9,6 +9,7 @@ namespace
 {
     const int buffSize = 100;
     bool relativePositioning = true;
+    bool adcReport = false;
 
     void parseCmd(char cmdType, int cmdNumber, char *cmdArgument)
     {
@@ -122,6 +123,20 @@ namespace
                 setFuncOn();
                 break;
             }
+            case 103:
+            {
+                Log.notice("enable ADC\n");
+                adcReport = true;
+                
+                break;
+            }
+            case 104:
+            {
+                Log.notice("disable ADC\n");
+                adcReport = false;
+
+                break;
+            }
             default:
             {
                 Log.error("unknown command G%i\n", cmdNumber);
@@ -188,7 +203,7 @@ namespace
                     break;
                 }
             }
-            if (millis() - reportTimer > 1000)
+            if (adcReport && millis() - reportTimer > 1000)
             {
                 Serial.print("voltage: ");
                 Serial.println(adcVoltage);
