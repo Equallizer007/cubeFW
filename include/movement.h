@@ -21,5 +21,5 @@ void stepperEnable();
 void stepperDisable();
 void movementTask(void* args);
 
-extern bool homingFlag, stopFlag;
-extern unsigned int targetSteps;
+extern bool homingFlag, stopFlag, relativePositioningFlag;
+extern unsigned int targetSteps, currentSteps;

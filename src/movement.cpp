@@ -1,4 +1,3 @@
-
 #include "pinDefs.h"
 #include "movement.h"
 #include <TMCStepper.h>
@@ -6,8 +5,8 @@
 #include <ESP32Encoder.h>
 #include <ArduinoLog.h>
 
-bool homingFlag = false, stopFlag = false;
-unsigned int targetSteps = 0;
+bool homingFlag = false, stopFlag = false, relativePositioningFlag = false;
+unsigned int targetSteps = 0, currentSteps = 0;
 
 namespace
 {
@@ -177,8 +176,8 @@ void movementTask(void *param)
             encoder.setCount(0);
             targetSteps = 0;
         }
-        int currentSteps = encoder.getCount();
-        long curTargetSteps = targetSteps;
+        currentSteps = encoder.getCount();
+        unsigned int curTargetSteps = targetSteps;
         if (stepper.motionComplete() && digitalRead(PIN_Z_EN) == LOW)
         {
             // if the last move is complete and the stepper enabled
@@ -197,7 +196,7 @@ void movementTask(void *param)
                 {
                     continue;
                 }
-                if (abs(curTargetSteps - currentSteps) < ENCODER_STEPS_PER_MM)
+                if (abs(int(curTargetSteps) - int(currentSteps)) < ENCODER_STEPS_PER_MM)
                 {
                     // Slower speed if distance is < 1mm
                     Log.notice("move using slower speeds\n");
