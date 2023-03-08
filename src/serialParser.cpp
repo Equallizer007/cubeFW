@@ -3,6 +3,7 @@
 #include "serialParser.h"
 #include "logging.h"
 #include "movement.h"
+#include "funcGen.h"
 #include "adc.h"
 
 typedef CommandParser<> MyCommandParser;
@@ -19,7 +20,8 @@ void cmd_G1(MyCommandParser::Argument *args, char *response)
         return;
     }
     double coord = strtod(input + 1, NULL);
-    Log.notice("read Parameter: %D\n", coord);
+    Log.notice("Read Parameter: %D\n", coord);
+    setNewTargetPosition(coord);
 
     // strlcpy(response, "success", MyCommandParser::MAX_RESPONSE_SIZE);
 }
@@ -69,9 +71,25 @@ void cmd_M18(MyCommandParser::Argument *args, char *response)
     stepperDisable();
 }
 
+// set Mosfet1 state
+void cmd_M20(MyCommandParser::Argument *args, char *response)
+{
+    bool val = args[0].asUInt64;
+    Log.notice("-> M20 set Mosfet T1: %s\n", val ? "on" : "off");
+    setF1(val);
+}
+
+// set Mosfet2 state
+void cmd_M21(MyCommandParser::Argument *args, char *response)
+{
+    bool val = args[0].asUInt64;
+    Log.notice("-> M21 set Mosfet T2: %s\n", val ? "on" : "off");
+    setF2(val);
+}
+
 void registerCommands()
 {
-    // CommandParser contains a bug where negative ints can't be parsed so always use string type instead
+    // CommandParser contains a bug where negative int64 can't be parsed so always use string type instead
 
     // G - commands
     parser.registerCommand("G0", "s", &cmd_G1);
@@ -84,6 +102,8 @@ void registerCommands()
     parser.registerCommand("M1", "", &cmd_M1);
     parser.registerCommand("M17", "", &cmd_M17);
     parser.registerCommand("M18", "", &cmd_M18);
+    parser.registerCommand("M20", "u", &cmd_M20);
+    parser.registerCommand("M21", "u", &cmd_M21);
 }
 
 void readSerial()
@@ -107,7 +127,7 @@ void serialParserTask(void *param)
     {
         readSerial();
     }
-    Log.trace("serialParserTask closed ...\n");
+    Log.trace("SerialParserTask closed ...\n");
 }
 
 void serialParserInit()

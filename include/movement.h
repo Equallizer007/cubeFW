@@ -20,6 +20,7 @@ bool stepperHome(bool dir);
 void stepperEnable();
 void stepperDisable();
 void movementTask(void* args);
+void setNewTargetPosition(double newPos);
 
 extern bool homingFlag, stopFlag, relativePositioningFlag;
 extern unsigned int targetSteps, currentSteps;

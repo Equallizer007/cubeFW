@@ -27,6 +27,22 @@ namespace
     }
 }
 
+void setNewTargetPosition(double newPos)
+{
+    long int newSteps = newPos * (ENCODER_STEPS_PER_MM / 1000.0);
+    if (relativePositioningFlag)
+    {
+        newSteps += targetSteps;
+    }
+    if (newSteps < 0)
+    {
+        Log.error("Target position can't be negative!");
+        return;
+    }
+    Log.info("New target steps: %u", newSteps);
+    targetSteps = newSteps;
+}
+
 void stepperEnable()
 {
     digitalWrite(PIN_Z_EN, LOW);

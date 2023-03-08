@@ -25,22 +25,27 @@ void initFunc()
     digitalWrite(PIN_GENERATOR_INV, HIGH);
 }
 
-// Set the output pin and its inverse to high and low, respectively
-void setFuncOn()
+// Manually set the state of the first mosfet
+void setF1(bool val)
 {
     ledcDetachPin(PIN_GENERATOR);
-    digitalWrite(PIN_GENERATOR, HIGH);
-    ledcDetachPin(PIN_GENERATOR_INV);
-    digitalWrite(PIN_GENERATOR_INV, LOW);
+    digitalWrite(PIN_GENERATOR, val);
 }
 
-// Set the output pin and its inverse to low and high, respectively
-void setFuncOff()
+// Manually set the state of the second mosfet
+void setF2(bool val)
 {
-    ledcDetachPin(PIN_GENERATOR);
-    digitalWrite(PIN_GENERATOR, LOW);
     ledcDetachPin(PIN_GENERATOR_INV);
-    digitalWrite(PIN_GENERATOR_INV, HIGH);
+    digitalWrite(PIN_GENERATOR_INV, val);
+}
+
+void setOutputOff()
+{
+    Log.info("stopping output\n");
+    ledcDetachPin(PIN_GENERATOR);
+    ledcDetachPin(PIN_GENERATOR_INV);
+    digitalWrite(PIN_GENERATOR, LOW);
+    digitalWrite(PIN_GENERATOR_INV, LOW);
 }
 
 // Check if thethe expected pulse length error is bigger then the accepted Error
@@ -130,8 +135,9 @@ unsigned getBitResolution(long freq, long onTime, long offTime)
 void setOutput(unsigned long freq, unsigned bitres, unsigned duty)
 {
     Log.notice("set freq: %l bitres %l duty: %u\n", freq, bitres, duty);
-    // Make sure outputpin is available and low
-    setFuncOff();
+    // Make sure outputpins are available and low
+    setF1(false);
+    setF2(false);
 
     // attach output pins to timer 0 and set frequency and dutycycle
     ledcAttachPin(PIN_GENERATOR, 0);
@@ -153,13 +159,13 @@ bool setFunc(unsigned long onTime, unsigned long offTime)
     if (onTime == 0)
     {
         Log.notice("ontime is 0 -> set output off \n");
-        setFuncOff();
+        setOutputOff();
         return true;
     }
     if (offTime == 0)
     {
         Log.notice("offtime is 0 -> set output on \n");
-        setFuncOn();
+        setOutputOff();
         return true;
     }
 

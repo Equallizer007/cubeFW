@@ -1,3 +1,5 @@
+#ifdef DISABLE_THIS
+
 #include <Arduino.h>
 #include <ArduinoLog.h>
 #include "movement.h"
@@ -227,3 +229,5 @@ void serialCmdInit()
         0,                 /* Priority of the task. */
         NULL);             /* Task handle. */
 }
+
+#endif
