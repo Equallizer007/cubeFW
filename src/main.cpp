@@ -8,7 +8,7 @@
 
 void setup()
 {
-  Serial.begin(115200);
+  Serial.begin(9600);
   logSetup();
   Log.trace("CubeFW compiled at %s\n", __DATE__ " " __TIME__);
   //serialCmdInit();

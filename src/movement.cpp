@@ -6,7 +6,7 @@
 #include <ArduinoLog.h>
 
 bool homingFlag = false, stopFlag = false, relativePositioningFlag = false;
-unsigned int targetSteps = 0, currentSteps = 0;
+int targetSteps = 0, currentSteps = 0;
 
 namespace
 {
@@ -193,7 +193,7 @@ void movementTask(void *param)
             targetSteps = 0;
         }
         currentSteps = encoder.getCount();
-        unsigned int curTargetSteps = targetSteps;
+        int curTargetSteps = targetSteps;
         if (stepper.motionComplete() && digitalRead(PIN_Z_EN) == LOW)
         {
             // if the last move is complete and the stepper enabled
@@ -210,9 +210,10 @@ void movementTask(void *param)
                 int stepsToTake = ((curTargetSteps - currentSteps) * mcFactor() * STEPPER_STEPS_PER_MM) / ENCODER_STEPS_PER_MM;
                 if (stepsToTake == 0)
                 {
+                    Serial.print(".");
                     continue;
                 }
-                if (abs(int(curTargetSteps) - int(currentSteps)) < ENCODER_STEPS_PER_MM)
+                if (abs(curTargetSteps - currentSteps) < ENCODER_STEPS_PER_MM)
                 {
                     // Slower speed if distance is < 1mm
                     Log.notice("move using slower speeds\n");
@@ -221,6 +222,7 @@ void movementTask(void *param)
                 }
                 else
                 {
+                    Log.notice("move using faster speeds\n");
                     stepper.setAccelerationInMillimetersPerSecondPerSecond(STEPPER_ACC_DEFAULT);
                     stepper.setSpeedInMillimetersPerSecond(STEPPER_SPEED_DEFAULT);
                 }

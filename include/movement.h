@@ -23,4 +23,4 @@ void movementTask(void* args);
 void setNewTargetPosition(double newPos);
 
 extern bool homingFlag, stopFlag, relativePositioningFlag;
-extern unsigned int targetSteps, currentSteps;
+extern int targetSteps, currentSteps;

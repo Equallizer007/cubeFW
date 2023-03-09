@@ -52,7 +52,7 @@ void cmd_M1(MyCommandParser::Argument *args, char *response)
 {
     double voltage = readADC();
     Serial.println(voltage);
-    char report[64];
+    char report[128];
     sprintf(report, "<REPORT> adc:%.2f rel_pos:%d current_steps:%u target_steps:%u\n", voltage, relativePositioningFlag, currentSteps, targetSteps);
     Serial.print(report);
 }
