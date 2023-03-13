@@ -8,19 +8,19 @@
 // VSPI are pins 19, 18
 SPIClass SPI_ADC(VSPI);
 
+volatile uint16_t adcVoltage = 0;
+volatile bool adcISRflag = false;
+uint16_t gapVoltageThreshold = calcADCInputVoltage(30);
+
 namespace
 {
-    double adcVoltage = 0;
-
     SPISettings settings(26000000L, MSBFIRST, SPI_MODE0);
 
     void IRAM_ATTR adcISR()
     {
-        adcVoltage = readADC();
-        if (adcVoltage > 3.0)
+        if (adcVoltage < gapVoltageThreshold)
         {
-            Serial.println("Hi");
-            detachInterrupt(PIN_GENERATOR);
+            adcISRflag = true;
         }
     }
 }
@@ -30,12 +30,35 @@ void activateADCinterrupt()
     attachInterrupt(PIN_GENERATOR, adcISR, RISING);
 }
 
-// Initiliazie the SPI communication
-void initADC()
+void adcTask(void *param)
 {
+    Log.trace("adcTask started on core %d ...\n", xPortGetCoreID());
     SPI_ADC.begin();
     pinMode(PIN_ADC, OUTPUT);
     digitalWrite(PIN_ADC, HIGH);
     SPI_ADC.beginTransaction(settings);
-    Log.notice("ADC started... %D\n", readADC());
+    for (;;)
+    {
+        adcVoltage = _readADC();
+        if (adcISRflag)
+        {
+            Serial.println("Hi Threshold");
+            adcISRflag = false;
+        }
+    }
+    Log.trace("adcTask closed ...\n");
+}
+
+// Initiliazie the SPI communication
+void adcInit()
+{
+    xTaskCreatePinnedToCore(
+        adcTask,   /* Task function. */
+        "adcTask", /* String with name of task. */
+        10000,     /* Stack size in bytes. */
+        NULL,      /* Parameter passed as input of the task */
+        0,         /* Priority of the task. */
+        NULL,      /* Task handle. */
+        0);        /* which core to run */
+    Log.notice("ADC started... %F\n", adcVoltage);
 }

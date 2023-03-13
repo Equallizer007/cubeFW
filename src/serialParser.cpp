@@ -50,8 +50,7 @@ void cmd_G91(MyCommandParser::Argument *args, char *response)
 // send report
 void cmd_M1(MyCommandParser::Argument *args, char *response)
 {
-    double voltage = readADC();
-    Serial.println(voltage);
+    double voltage = calcVoltage(adcVoltage);
     char report[128];
     sprintf(report, "<REPORT> adc:%.2f rel_pos:%d current_steps:%u target_steps:%u\n", voltage, relativePositioningFlag, currentSteps, targetSteps);
     Serial.print(report);
@@ -94,14 +93,6 @@ void cmd_M100(MyCommandParser::Argument *args, char *response)
     unsigned long onTime = args[0].asUInt64;
     unsigned long offTime = args[1].asUInt64;
     Log.notice("parsed: onTime:%u offTime:%u\n",onTime,offTime);
-    if (onTime > 1000 && offTime > 1000)
-    {
-        Log.notice("set onTime: %Fmicro offTime: %Fmicro\n", onTime / 1000.0, offTime / 1000.0);
-    }
-    else
-    {
-        Log.notice("set onTime: %lnns offTime: %lnns\n", onTime, offTime);
-    }
     setFunc(onTime, offTime);
 }
 
@@ -149,7 +140,7 @@ void readSerial()
 
 void serialParserTask(void *param)
 {
-    Log.trace("serialParserTask started ...\n");
+    Log.trace("serialParserTask started on core %d...\n", xPortGetCoreID());
     for (;;)
     {
         readSerial();
@@ -161,11 +152,12 @@ void serialParserTask(void *param)
 void serialParserInit()
 {
     registerCommands();
-    xTaskCreate(
+    xTaskCreatePinnedToCore(
         serialParserTask,   /* Task function. */
         "serialParserTask", /* String with name of task. */
-        10000,              /* Stack size in bytes. */
-        NULL,               /* Parameter passed as input of the task */
-        0,                  /* Priority of the task. */
-        NULL);              /* Task handle. */
+        10000,     /* Stack size in bytes. */
+        NULL,      /* Parameter passed as input of the task */
+        0,         /* Priority of the task. */
+        NULL,      /* Task handle. */
+        1);        /* which core to run */
 }

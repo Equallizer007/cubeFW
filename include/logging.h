@@ -5,7 +5,7 @@
 
 // Configure the logging system by setting the prefix and suffix print functions
 // and starting log output to the specified output stream at the specified log level.
-void logSetup();
+void logInit();
 
 // Print the log level description corresponding to the given log level.
 void printLogLevel(Print *_logOutput, int logLevel);

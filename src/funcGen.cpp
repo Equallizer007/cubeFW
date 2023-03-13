@@ -42,6 +42,7 @@ void setF2(bool val)
 void setOutputOff()
 {
     Log.info("stopping output\n");
+    detachInterrupt(PIN_GENERATOR);
     ledcDetachPin(PIN_GENERATOR);
     ledcDetachPin(PIN_GENERATOR_INV);
     digitalWrite(PIN_GENERATOR, LOW);
@@ -155,6 +156,14 @@ void setOutput(unsigned long freq, unsigned bitres, unsigned duty)
 // Returns: true if successful, false otherwise
 bool setFunc(unsigned long onTime, unsigned long offTime)
 {
+    if (onTime >= 1000 && offTime >= 1000)
+    {
+        Log.notice("set onTime: %Fmicro offTime: %Fmicro\n", onTime / 1000.0, offTime / 1000.0);
+    }
+    else
+    {
+        Log.notice("set onTime: %lns offTime: %lns\n", onTime, offTime);
+    }
     // Check if the onTime or offTime is 0, and set the output pin and its inverse accordingly
     if (onTime == 0)
     {
@@ -199,7 +208,7 @@ bool setFunc(unsigned long onTime, unsigned long offTime)
 
     // Set the output signal
     setOutput(freq, bitres, duty);
-    //activateADCinterrupt();
+    activateADCinterrupt();
     return true;
 }
 

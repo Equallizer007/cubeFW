@@ -15,7 +15,7 @@
 #define STEPPER_BUMP_DIST 2
 #define ENCODER_STEPS_PER_MM  4000
 
-bool stepperSetup();
+bool stepperInit();
 bool stepperHome(bool dir);
 void stepperEnable();
 void stepperDisable();

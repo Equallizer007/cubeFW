@@ -91,7 +91,7 @@ bool tmcSetup()
     return true;
 }
 
-bool stepperSetup()
+bool stepperInit()
 {
     pinMode(PIN_Z_MIN_DEC, INPUT_PULLUP);
     pinMode(PIN_Z_MAX_DEC, INPUT_PULLUP);
@@ -113,13 +113,14 @@ bool stepperSetup()
     Log.notice("stepper Initialized\n");
 
     // start movement task
-    xTaskCreate(
+    xTaskCreatePinnedToCore(
         movementTask,   /* Task function. */
         "movementTask", /* String with name of task. */
-        10000,          /* Stack size in bytes. */
-        NULL,           /* Parameter passed as input of the task */
-        0,              /* Priority of the task. */
-        NULL);          /* Task handle. */
+        10000,     /* Stack size in bytes. */
+        NULL,      /* Parameter passed as input of the task */
+        0,         /* Priority of the task. */
+        NULL,      /* Task handle. */
+        1);        /* which core to run */
     return true;
 }
 
@@ -178,7 +179,7 @@ bool stepperHome(bool dir)
 
 void movementTask(void *param)
 {
-    Log.trace("movementTask started ...\n");
+    Log.trace("movementTask started on core %d...\n", xPortGetCoreID());
     bool moveStarted = false;
     for (;;)
     {

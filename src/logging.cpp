@@ -2,12 +2,14 @@
 
 // Configure the logging system by setting the prefix and suffix print functions
 // and starting log output to the specified output stream at the specified log level.
-void logSetup()
+void logInit()
 {
+    Serial.begin(115200);
     Log.setPrefix(printPrefix);
     Log.setSuffix(printSuffix);
     Log.begin(LOG_LEVEL, &Serial);
     Log.setShowLevel(false);
+    Log.trace("CubeFW compiled at %s\n", __DATE__ " " __TIME__);
 }
 
 void printLogLevel(Print *_logOutput, int logLevel)

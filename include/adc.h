@@ -5,9 +5,9 @@
  * Some functions must be definen in header to force inlining
  * @version 0.1
  * @date 2023-03-08
- * 
+ *
  * @copyright Copyright (c) 2023
- * 
+ *
  */
 #pragma once
 #include "pinDefs.h"
@@ -24,6 +24,7 @@
     }
 
 extern SPIClass SPI_ADC;
+extern volatile uint16_t adcVoltage;
 
 // Copied from SPI.h
 struct spi_struct_t
@@ -43,7 +44,8 @@ public:
     spi_t *_spi;
 };
 
-void initADC();
+void activateADCinterrupt();
+void adcInit();
 
 // Forcing the SPI transfer function to be inline removes the call overhead
 inline uint16_t spiTransferShortNL2(spi_t *spi, uint16_t data) __attribute__((always_inline));
@@ -67,14 +69,27 @@ uint16_t spiTransferShortNL2(spi_t *spi, uint16_t data)
     return data;
 }
 
-inline double readADC() __attribute__((always_inline));
-// Take a reading and return the voltage as double
-double readADC()
+// returns one voltage reading from the adc as an uint16_t
+inline uint16_t _readADC() __attribute__((always_inline));
+uint16_t _readADC()
 {
-    GPIO.out_w1tc = ((uint32_t)1 << PIN_ADC);                                                      // digitalWrite(SS, LOW);
-    uint16_t buff = spiTransferShortNL2(reinterpret_cast<mockSPIClass *>(&SPI_ADC)->_spi, 0xFFFF); // faster way for buff = SPI_ADC.transfer16(0xFFFF);
-    GPIO.out_w1ts = ((uint32_t)1 << PIN_ADC);                                                      // digitalWrite(SS, HIGH);
-    return VOLTAGE_DIVIDER_FACTOR * (buff >> 4) * (ADC_VREF / (pow(2, ADC_NUM_BITS) - 1));
+    GPIO.out_w1tc = ((uint32_t)1 << PIN_ADC);                                                                 // faster way for digitalWrite(SS, LOW);
+    uint16_t adcInputVoltage = spiTransferShortNL2(reinterpret_cast<mockSPIClass *>(&SPI_ADC)->_spi, 0xFFFF); // faster way for adcInputVoltage = SPI_ADC.transfer16(0xFFFF);
+    GPIO.out_w1ts = ((uint32_t)1 << PIN_ADC);                                                                 // faster way for digitalWrite(SS, HIGH);
+    return adcInputVoltage;
 }
 
-void activateADCinterrupt();
+// Return the calculated voltage value
+// Vout = Vin * R2 / (R1 + R2), where Vin = adcInputVoltage >> 4
+// VOLTAGE_DIVIDER_FACTOR represents R2 / (R1 + R2)
+// ADC_VREF is the ADC reference voltage and ((1 << ADC_NUM_BITS) - 1) represents the maximum ADC output value
+inline float calcVoltage(uint16_t adcInputVoltage)
+{
+    return VOLTAGE_DIVIDER_FACTOR * (adcInputVoltage >> 4) * (ADC_VREF / ((1 << ADC_NUM_BITS) - 1));
+}
+
+// Returns the reverse of the calcVoltage function
+inline uint16_t calcADCInputVoltage(float voltage)
+{
+    return static_cast<uint16_t>((voltage / VOLTAGE_DIVIDER_FACTOR) / (ADC_VREF / ((1 << ADC_NUM_BITS) - 1)) * (1 << 4));
+}
