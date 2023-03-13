@@ -199,7 +199,7 @@ bool setFunc(unsigned long onTime, unsigned long offTime)
 
     // Set the output signal
     setOutput(freq, bitres, duty);
-    activateADCinterrupt();
+    //activateADCinterrupt();
     return true;
 }
 

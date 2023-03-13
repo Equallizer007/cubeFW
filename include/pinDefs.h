@@ -2,8 +2,8 @@
 
 /*   Debug pins: 12(AD1),14(AD3),13(AD0),15(AD2)    */ 
 
-#define PIN_GENERATOR  2              // Generator Output Pin 
-#define PIN_GENERATOR_INV  4          // Generator Inverted Output Pin 
+#define PIN_GENERATOR  4              // Generator Output Pin 
+#define PIN_GENERATOR_INV  2          // Generator Inverted Output Pin 
 
 #define PIN_Z_MIN 27                  // Min Endstop
 #define PIN_Z_MIN_DEC 26              // Min Dec Endstop

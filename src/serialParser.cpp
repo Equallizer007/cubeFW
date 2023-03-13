@@ -87,6 +87,31 @@ void cmd_M21(MyCommandParser::Argument *args, char *response)
     setF2(val);
 }
 
+// set PWM out
+void cmd_M100(MyCommandParser::Argument *args, char *response)
+{
+    Log.notice("-> M100 set PWM on");
+    unsigned long onTime = args[0].asUInt64;
+    unsigned long offTime = args[1].asUInt64;
+    Log.notice("parsed: onTime:%u offTime:%u\n",onTime,offTime);
+    if (onTime > 1000 && offTime > 1000)
+    {
+        Log.notice("set onTime: %Fmicro offTime: %Fmicro\n", onTime / 1000.0, offTime / 1000.0);
+    }
+    else
+    {
+        Log.notice("set onTime: %lnns offTime: %lnns\n", onTime, offTime);
+    }
+    setFunc(onTime, offTime);
+}
+
+// set PWM off
+void cmd_M101(MyCommandParser::Argument *args, char *response)
+{
+    Log.notice("-> M101 set PWM off");
+    setOutputOff();
+}
+
 void registerCommands()
 {
     // CommandParser contains a bug where negative int64 can't be parsed so always use string type instead
@@ -104,6 +129,8 @@ void registerCommands()
     parser.registerCommand("M18", "", &cmd_M18);
     parser.registerCommand("M20", "u", &cmd_M20);
     parser.registerCommand("M21", "u", &cmd_M21);
+    parser.registerCommand("M100", "uu", &cmd_M100);
+    parser.registerCommand("M101", "", &cmd_M101);
 }
 
 void readSerial()
@@ -126,6 +153,7 @@ void serialParserTask(void *param)
     for (;;)
     {
         readSerial();
+        delay(100);
     }
     Log.trace("SerialParserTask closed ...\n");
 }
