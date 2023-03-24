@@ -37,12 +37,18 @@ void adcTask(void *param)
     pinMode(PIN_ADC, OUTPUT);
     digitalWrite(PIN_ADC, HIGH);
     SPI_ADC.beginTransaction(settings);
+    long ttimer = millis();
     for (;;)
     {
         adcVoltage = _readADC();
+        if (millis()-ttimer > 3000){
+            Serial.printf("<ADC> raw:%d calc:%.2f \n",adcVoltage, calcVoltage(adcVoltage));
+            ttimer = millis();
+        }
+        
         if (adcISRflag)
         {
-            Serial.println("Hi Threshold");
+            //Serial.println("Hi Threshold");
             adcISRflag = false;
         }
     }

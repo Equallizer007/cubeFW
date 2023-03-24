@@ -26,14 +26,14 @@ void initFunc()
 }
 
 // Manually set the state of the first mosfet
-void setF1(bool val)
+void setF2(bool val)
 {
     ledcDetachPin(PIN_GENERATOR);
     digitalWrite(PIN_GENERATOR, val);
 }
 
 // Manually set the state of the second mosfet
-void setF2(bool val)
+void setF1(bool val)
 {
     ledcDetachPin(PIN_GENERATOR_INV);
     digitalWrite(PIN_GENERATOR_INV, val);

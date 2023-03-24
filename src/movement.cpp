@@ -4,8 +4,10 @@
 #include <SpeedyStepper.h>
 #include <ESP32Encoder.h>
 #include <ArduinoLog.h>
+#include "adc.h"
+#include "funcGen.h"
 
-bool homingFlag = false, stopFlag = false, relativePositioningFlag = false;
+bool homingFlag = false, stopFlag = false, touchModeFlag = false, relativePositioningFlag = true;
 int targetSteps = 0, currentSteps = 0;
 
 namespace
@@ -177,6 +179,27 @@ bool stepperHome(bool dir)
     return true;
 }
 
+void touchMode(){
+    stepperEnable();
+    stepper.setAccelerationInMillimetersPerSecondPerSecond(STEPPER_ACC_DEFAULT);
+    stepper.setSpeedInMillimetersPerSecond(STEPPER_SPEED_DEFAULT);
+    stepper.setupRelativeMoveInMillimeters((STEPPER_LEN_LINEAR_AXIS + 5));
+    while (!stepper.processMovement())
+    {
+        int16_t minVoltage = calcADCInputVoltage(TOUCHMODE_MIN_VOLTAGE);
+        if (adcVoltage < minVoltage)
+        {
+            Log.notice("Touch activated: Stopping movement\n");
+            stepper.setupStop();
+            targetSteps = encoder.getCount();
+            break;
+        }
+    }
+    touchModeFlag = false;
+    setF1(false);
+    setF2(false);
+}
+
 void movementTask(void *param)
 {
     Log.trace("movementTask started on core %d...\n", xPortGetCoreID());
@@ -192,6 +215,10 @@ void movementTask(void *param)
             homingFlag = false;
             encoder.setCount(0);
             targetSteps = 0;
+        }
+        if (touchModeFlag){
+            Log.notice("start drive towards touch\n");
+            touchMode();
         }
         currentSteps = encoder.getCount();
         int curTargetSteps = targetSteps;

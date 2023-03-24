@@ -21,4 +21,6 @@
 #define PIN_ADC 5                     // Pin 18 and 19 are also used by VSPI!
 #define ADC_NUM_BITS 12               // Number of bits for SPI communicaton
 #define ADC_VREF 5.0                  // Reference Voltage
-#define VOLTAGE_DIVIDER_FACTOR 30     // Factor of the voltage divider
+#define VOLTAGE_DIVIDER_FACTOR 31.57     // Factor of the voltage divider
+#define ADC_ZERO_OFFSET 0
+#define TOUCHMODE_MIN_VOLTAGE 3.0

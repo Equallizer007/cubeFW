@@ -85,7 +85,7 @@ uint16_t _readADC()
 // ADC_VREF is the ADC reference voltage and ((1 << ADC_NUM_BITS) - 1) represents the maximum ADC output value
 inline float calcVoltage(uint16_t adcInputVoltage)
 {
-    return VOLTAGE_DIVIDER_FACTOR * (adcInputVoltage >> 4) * (ADC_VREF / ((1 << ADC_NUM_BITS) - 1));
+    return VOLTAGE_DIVIDER_FACTOR * (max(adcInputVoltage-ADC_ZERO_OFFSET,0) >> 4) * (ADC_VREF / ((1 << ADC_NUM_BITS) - 1));
 }
 
 // Returns the reverse of the calcVoltage function

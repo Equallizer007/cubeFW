@@ -36,6 +36,10 @@ void cmd_G28(MyCommandParser::Argument *args, char *response)
 // enable absolute positioning
 void cmd_G90(MyCommandParser::Argument *args, char *response)
 {
+    if (homingFlag == true){
+        Log.error("Can't do this during homing...");
+        return;
+    }
     Log.notice("-> G90 enable absolute Positioning\n");
     relativePositioningFlag = false;
 }
@@ -43,8 +47,20 @@ void cmd_G90(MyCommandParser::Argument *args, char *response)
 // enable relative positioning
 void cmd_G91(MyCommandParser::Argument *args, char *response)
 {
+    if (homingFlag == true){
+        Log.error("Can't do this during homing...");
+        return;
+    }
     Log.notice("-> G91 enable relative Positioning\n");
     relativePositioningFlag = true;
+}
+
+// reset ESP
+void cmd_M0(MyCommandParser::Argument *args, char *response)
+{
+    Log.notice("Reset....");
+    delay(10);
+    ESP.restart();
 }
 
 // send report
@@ -52,7 +68,7 @@ void cmd_M1(MyCommandParser::Argument *args, char *response)
 {
     double voltage = calcVoltage(adcVoltage);
     char report[128];
-    sprintf(report, "<REPORT> adc:%.2f rel_pos:%d current_steps:%u target_steps:%u\n", voltage, relativePositioningFlag, currentSteps, targetSteps);
+    sprintf(report, "<REPORT> raw: %d adc:%.2f rel_pos:%d current_steps:%u target_steps:%u\n",adcVoltage, voltage, relativePositioningFlag, currentSteps, targetSteps);
     Serial.print(report);
 }
 
@@ -89,6 +105,10 @@ void cmd_M21(MyCommandParser::Argument *args, char *response)
 // set PWM out
 void cmd_M100(MyCommandParser::Argument *args, char *response)
 {
+    if (homingFlag == true){
+        Log.error("Can't do this during homing...");
+        return;
+    }
     Log.notice("-> M100 set PWM on");
     unsigned long onTime = args[0].asUInt64;
     unsigned long offTime = args[1].asUInt64;
@@ -99,8 +119,32 @@ void cmd_M100(MyCommandParser::Argument *args, char *response)
 // set PWM off
 void cmd_M101(MyCommandParser::Argument *args, char *response)
 {
+    if (homingFlag == true){
+        Log.error("Can't do this during homing...");
+        return;
+    }
     Log.notice("-> M101 set PWM off");
     setOutputOff();
+}
+
+// touch mode
+void cmd_M102(MyCommandParser::Argument *args, char *response)
+{
+    if (homingFlag == true){
+        Log.error("Can't do this during homing...");
+        return;
+    }
+    Log.notice("-> M102 touch mode:...");
+    setOutputOff();
+    setF1(true);
+    setF2(true);
+    delay(100);
+    uint16_t minVoltage = calcADCInputVoltage(TOUCHMODE_MIN_VOLTAGE);
+    if (adcVoltage <= minVoltage){
+        Log.error("Can't do touch mode: ADC Voltage too low!");
+        return;
+    }
+    touchModeFlag = true;
 }
 
 void registerCommands()
@@ -115,6 +159,7 @@ void registerCommands()
     parser.registerCommand("G91", "", &cmd_G91);
 
     // M - commands
+    parser.registerCommand("M0", "", &cmd_M0);
     parser.registerCommand("M1", "", &cmd_M1);
     parser.registerCommand("M17", "", &cmd_M17);
     parser.registerCommand("M18", "", &cmd_M18);
@@ -122,6 +167,7 @@ void registerCommands()
     parser.registerCommand("M21", "u", &cmd_M21);
     parser.registerCommand("M100", "uu", &cmd_M100);
     parser.registerCommand("M101", "", &cmd_M101);
+    parser.registerCommand("M102", "", &cmd_M102);
 }
 
 void readSerial()
