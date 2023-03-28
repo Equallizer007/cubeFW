@@ -125,9 +125,8 @@ class CubeControlApp:
                 text="Disconnect", command=self.disconnect_device
             )
             self.device_dropdown.configure(state="disabled")
+            self.create_control_widgets()
             self.create_console()
-            self.logo_text_label.grid(column=0, row=0, sticky="n")
-            self.select_device_label.grid_remove()
             self.serial_thread = threading.Thread(target=self.read_serial)
             self.update_console_text(
                 f"Connected to {self.device.port} @  baudrate {self.device.baudrate}"
@@ -144,7 +143,7 @@ class CubeControlApp:
         self.device_dropdown.configure(state="readonly")
         self.select_device_label.grid()
         self.remove_console()
-        self.logo_text_label.grid(column=0, row=0, sticky="")
+        self.remove_control_widgets()
 
     def update_serial_devices(self) -> None:
         # Get the list of serial devices and update the dropdown
@@ -172,6 +171,45 @@ class CubeControlApp:
 
         # Schedule the next update
         self.update_serial_handle = self.app.after(1000, self.update_serial_devices)
+
+    def create_control_widgets(self) -> None:
+        self.logo_text_label.grid(column=0, row=0, sticky="n")
+        self.select_device_label.grid_remove()
+
+        self.control_frame = ttk.Frame(
+            self.left_frame, padding=0, width=400, height=500
+        )
+        self.control_frame.grid(column=0, row=1, columnspan=3, sticky="nesw")
+
+        # Up arrow button
+        self.up_arrow_button = ttk.Button(
+            self.control_frame,
+            text="↑ Move Up",
+        )
+        self.up_arrow_button.grid(column=0, row=0, pady=5, padx=(10, 0))
+
+        # Down arrow button
+        self.down_arrow_button = ttk.Button(
+            self.control_frame,
+            text="↓ Move Down",
+        )
+        self.down_arrow_button.grid(column=1, row=0, pady=5, padx=5)
+
+        # Movement Step dropdown
+        movement_steps = ["0.5µm", "1µm", "2.5µm", "5µm", "10µm", "100µm", "1mm", "5mm"]
+        self.movement_steps_dropdown = ttk.Combobox(
+            self.control_frame,
+            values=movement_steps,
+            font=("Arial", 12),
+            state="readonly",
+            width=5,
+        )
+        self.movement_steps_dropdown.current(0)
+        self.movement_steps_dropdown.grid(column=2, row=0, padx=(0, 10))
+
+    def remove_control_widgets(self) -> None:
+        self.logo_text_label.grid(column=0, row=0, sticky="")
+        self.control_frame.destroy()
 
     def create_console(self) -> None:
         # Create a console frame within the right frame
@@ -315,7 +353,8 @@ class CubeControlApp:
     def on_closing(self):
         print("closing all threads...")
         self.stop_serial = True
-        self.serial_thread.join()
+        if hasattr(self, "serial_thread"):
+            self.serial_thread.join()
         self.app.destroy()
 
 
