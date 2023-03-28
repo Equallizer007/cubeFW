@@ -177,35 +177,65 @@ class CubeControlApp:
         self.select_device_label.grid_remove()
 
         self.control_frame = ttk.Frame(
-            self.left_frame, padding=0, width=400, height=500
+            self.left_frame, padding=10, width=400, height=500
         )
         self.control_frame.grid(column=0, row=1, columnspan=3, sticky="nesw")
+
+        # Home button
+        self.home_button = ttk.Button(
+            self.control_frame,
+            text="Home Z",
+        )
+        self.home_button.grid(column=0, row=2, pady=5)
+
+        #Current position label
+        self.current_position_label = ttk.Label(
+            self.control_frame,
+            text="Current Position: 0µm"
+        )
+        self.current_position_label.grid(column=0, row=0, pady=5, padx = (20,0))
+
+        #Current steps label
+        self.current_steps_label = ttk.Label(
+            self.control_frame,
+            text="Current Steps: 0"
+        )
+        self.current_steps_label.grid(column=1, row=0, pady=5, padx = (20,0))
 
         # Up arrow button
         self.up_arrow_button = ttk.Button(
             self.control_frame,
             text="↑ Move Up",
         )
-        self.up_arrow_button.grid(column=0, row=0, pady=5, padx=(10, 0))
+        self.up_arrow_button.grid(column=0, row=1, pady=5 )
 
         # Down arrow button
         self.down_arrow_button = ttk.Button(
             self.control_frame,
             text="↓ Move Down",
         )
-        self.down_arrow_button.grid(column=1, row=0, pady=5, padx=5)
+        self.down_arrow_button.grid(column=1, row=1, pady=5 )
 
         # Movement Step dropdown
         movement_steps = ["0.5µm", "1µm", "2.5µm", "5µm", "10µm", "100µm", "1mm", "5mm"]
         self.movement_steps_dropdown = ttk.Combobox(
             self.control_frame,
             values=movement_steps,
-            font=("Arial", 12),
+            font=("Arial", 11),
             state="readonly",
             width=5,
         )
         self.movement_steps_dropdown.current(0)
-        self.movement_steps_dropdown.grid(column=2, row=0, padx=(0, 10))
+        self.movement_steps_dropdown.grid(column=2, row=1)
+
+        # Restart button
+        self.restart_button = ttk.Button(
+            self.control_frame,
+            text="Restart",
+        )
+        self.restart_button.grid(column=1, row=2, pady=5)
+
+        
 
     def remove_control_widgets(self) -> None:
         self.logo_text_label.grid(column=0, row=0, sticky="")
