@@ -129,6 +129,7 @@ class CubeControlApp:
             self.logo_text_label.grid(column=0, row=0, sticky="n")
             self.select_device_label.grid_remove()
             self.serial_thread = threading.Thread(target=self.read_serial)
+            self.update_console_text(f"Connected to {self.device.port} @  baudrate {self.device.baudrate}")
             self.serial_thread.start()
 
     def disconnect_device(self) -> None:
@@ -241,6 +242,8 @@ class CubeControlApp:
         self.console_frame.rowconfigure(1, weight=1)
 
     def update_console_text(self, new_text: str) -> None:
+        if new_text[-1] != '\n':
+            new_text += '\n'
         self.console_text.configure(state="normal")
         self.console_text.insert("end", new_text)
         self.console_text.configure(state="disabled")
