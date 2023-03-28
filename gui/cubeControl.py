@@ -182,18 +182,18 @@ class CubeControlApp:
         console_label = ttk.Label(
             self.console_frame, text="Console:", font=("Arial", 12), anchor="center"
         )
-        console_label.grid(column=0, row=0, columnspan=2, sticky="w")
+        console_label.grid(column=0, row=0, columnspan=3, sticky="w")
 
         self.console_text = tk.Text(self.console_frame, wrap=tk.WORD, state="disabled")
         self.console_text.grid(
-            column=0, row=1, columnspan=2, sticky="nsew"
+            column=0, row=1, columnspan=3, sticky="nsew"
         )  # Fill available space
 
         # Create a scrollbar and associate it with console_text
         scrollbar = ttk.Scrollbar(
             self.console_frame, orient="vertical", command=self.console_text.yview
         )
-        scrollbar.grid(column=2, row=1, sticky="ns")
+        scrollbar.grid(column=3, row=1, sticky="ns")
 
         # Set the yscrollcommand option of console_text to the set method of the scrollbar
         self.console_text.configure(yscrollcommand=scrollbar.set)
@@ -201,7 +201,7 @@ class CubeControlApp:
 
         self.console_input = ttk.Entry(self.console_frame, font=("Arial", 12))
         self.console_input.bind("<Return>", lambda event: self.send_serial())
-        self.console_input.grid(column=0, row=3, sticky="ew")
+        self.console_input.grid(column=0, row=3, columnspan=2, sticky="ew")
 
         send_button = ttk.Button(
             self.console_frame,
@@ -209,7 +209,7 @@ class CubeControlApp:
             style="Accent.TButton",
             command=self.send_serial,
         )
-        send_button.grid(column=1, row=3, sticky="e", padx=(5, 0))
+        send_button.grid(column=2, row=3, sticky="e", padx=(5, 0))
 
         # Create the clear button and bind it to the clear_console_text function
         clear_button = ttk.Button(
@@ -220,23 +220,31 @@ class CubeControlApp:
         )
         clear_button.grid(column=0, row=4, sticky="w", padx=(0, 5))
 
-        # Create the toggle button and bind it to the toggle_auto_scroll function
+        # Create a toggle button and bind it to the toggle_auto_scroll function
         self.auto_scroll_enabled = tk.BooleanVar(value=True)
         toggle_button = ttk.Checkbutton(
             self.console_frame, text="Auto Scroll", variable=self.auto_scroll_enabled
         )
         toggle_button.grid(column=1, row=4, sticky="w", pady=(10, 0))
 
+        # Create a toggle button and bind it to the show_all function
+        self.show_all_enabled = tk.BooleanVar(value=True)
+        toggle_button = ttk.Checkbutton(
+            self.console_frame, text="Show All", variable=self.show_all_enabled
+        )
+        toggle_button.grid(column=2, row=4, sticky="w", pady=(10, 0))
+
         # Configure column and row weights to ensure proper resizing behavior
-        self.console_frame.columnconfigure(0, weight=3)
+        self.console_frame.columnconfigure(0, weight=1)
         self.console_frame.columnconfigure(1, weight=1)
+        self.console_frame.columnconfigure(2, weight=1)
         self.console_frame.rowconfigure(1, weight=1)
 
-    # Add auto-scrolling functionality
     def update_console_text(self, new_text: str) -> None:
         self.console_text.configure(state="normal")
         self.console_text.insert("end", new_text)
         self.console_text.configure(state="disabled")
+        # Add auto-scrolling functionality
         if self.auto_scroll_enabled.get():
             self.console_text.see("end")
 
