@@ -129,7 +129,9 @@ class CubeControlApp:
             self.logo_text_label.grid(column=0, row=0, sticky="n")
             self.select_device_label.grid_remove()
             self.serial_thread = threading.Thread(target=self.read_serial)
-            self.update_console_text(f"Connected to {self.device.port} @  baudrate {self.device.baudrate}")
+            self.update_console_text(
+                f"Connected to {self.device.port} @  baudrate {self.device.baudrate}"
+            )
             self.serial_thread.start()
 
     def disconnect_device(self) -> None:
@@ -175,7 +177,7 @@ class CubeControlApp:
         # Create a console frame within the right frame
         print("create console")
         self.console_frame = ttk.Frame(
-            self.right_frame, style="Card.TFrame", padding=20, width=400, height=500
+            self.right_frame, padding=20, width=400, height=500
         )
         self.console_frame.pack()
         self.console_frame.grid_propagate(False)
@@ -200,8 +202,24 @@ class CubeControlApp:
         self.console_text.configure(yscrollcommand=scrollbar.set)
         self.console_frame.grid_rowconfigure(2, weight=1)  # Add empty row with weight 1
 
+        self.placeholder_text = "Type your command here..."
+
+        def remove_placeholder_text():
+            if self.console_input.get() == self.placeholder_text:
+                self.console_input.delete(0, "end")
+                self.console_input.configure(foreground="black")
+
+        def set_placeholder_text():
+            if len(self.console_input.get()) == 0:
+                self.console_input.delete(0, "end")
+                self.console_input.insert(0, self.placeholder_text)
+                self.console_input.configure(foreground="#a9a9a9")
+
         self.console_input = ttk.Entry(self.console_frame, font=("Arial", 12))
         self.console_input.bind("<Return>", lambda event: self.send_serial())
+        set_placeholder_text()
+        self.console_input.bind("<FocusIn>", lambda event: remove_placeholder_text())
+        self.console_input.bind("<FocusOut>", lambda event: set_placeholder_text())
         self.console_input.grid(column=0, row=3, columnspan=2, sticky="ew")
 
         send_button = ttk.Button(
@@ -242,8 +260,8 @@ class CubeControlApp:
         self.console_frame.rowconfigure(1, weight=1)
 
     def update_console_text(self, new_text: str) -> None:
-        if new_text[-1] != '\n':
-            new_text += '\n'
+        if new_text[-1] != "\n":
+            new_text += "\n"
         self.console_text.configure(state="normal")
         self.console_text.insert("end", new_text)
         self.console_text.configure(state="disabled")
@@ -261,9 +279,13 @@ class CubeControlApp:
 
     def send_serial(self):
         if self.device is not None:
-            input_data = self.console_input.get() + "\n"
-            if len(input_data) <= 1:
+            input_data = self.console_input.get()
+            if len(input_data) <= 0:
                 return
+            if input_data == self.placeholder_text:
+                return
+            if input_data[-1] != "\n":
+                input_data += "\n"
             self.device.write(input_data.encode())
             self.console_text.config(state="normal")
             self.update_console_text(f">>> {input_data}")
