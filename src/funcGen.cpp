@@ -4,6 +4,8 @@
 #include <ArduinoLog.h> // include the ArduinoLog library for logging functionality
 #include "adc.h"
 
+bool generatorAciveFlag = false;
+
 // Define some constants that specify the hardware limits of the ESP32
 namespace
 {
@@ -42,6 +44,7 @@ void setF1(bool val)
 void setOutputOff()
 {
     Log.info("stopping output\n");
+    generatorAciveFlag = false;
     detachInterrupt(PIN_GENERATOR);
     ledcDetachPin(PIN_GENERATOR);
     ledcDetachPin(PIN_GENERATOR_INV);
@@ -136,6 +139,7 @@ unsigned getBitResolution(long freq, long onTime, long offTime)
 void setOutput(unsigned long freq, unsigned bitres, unsigned duty)
 {
     Log.notice("set freq: %l bitres %l duty: %u\n", freq, bitres, duty);
+    generatorAciveFlag = true;
     // Make sure outputpins are available and low
     setF1(false);
     setF2(false);

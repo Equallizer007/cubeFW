@@ -7,7 +7,7 @@
 #include "adc.h"
 #include "funcGen.h"
 
-bool homingFlag = false, stopFlag = false, touchModeFlag = false, relativePositioningFlag = true;
+bool homingFlag = false, stopFlag = false, touchModeFlag = false, autoModeFlag = false, relativePositioningFlag = true;
 int targetSteps = 0, currentSteps = 0;
 
 namespace
@@ -72,6 +72,7 @@ bool ddigitalRead(unsigned pin)
 
 bool tmcSetup()
 {
+    setOutputOff();
     TMC_Z_SERIAL.begin(115200);                  // INITIALIZE UART TMC2209
     driver.begin();                              // Initialize driver
     driver.toff(5);                              // Enables driver in software
@@ -200,6 +201,29 @@ void touchMode(){
     setF2(false);
 }
 
+void autoMode(){
+    stepperEnable();
+    stepper.setAccelerationInMillimetersPerSecondPerSecond(STEPPER_ACC_DEFAULT);
+    stepper.setSpeedInMillimetersPerSecond(STEPPER_SPEED_DEFAULT);
+    while (autoModeFlag){
+        if (adcFlagH){
+            //Serial.println("flagH");
+            stepper.moveRelativeInSteps(1);
+            adcResetCounterFlag = true;
+        }
+        else if (adcFlagL){
+            //Serial.println("flagL");
+            stepper.moveRelativeInSteps(-10);
+            adcResetCounterFlag = true;
+        }
+    }
+    stepper.setupStop();
+    targetSteps = encoder.getCount();
+    Serial.println("end auto");
+}
+
+
+
 void movementTask(void *param)
 {
     Log.trace("movementTask started on core %d...\n", xPortGetCoreID());
@@ -219,6 +243,10 @@ void movementTask(void *param)
         if (touchModeFlag){
             Log.notice("start drive towards touch\n");
             touchMode();
+        }
+        if (autoModeFlag){
+            Log.notice("start auto Mode\n");
+            autoMode();
         }
         currentSteps = encoder.getCount();
         int curTargetSteps = targetSteps;

@@ -123,6 +123,10 @@ void cmd_M101(MyCommandParser::Argument *args, char *response)
         Log.error("Can't do this during homing...");
         return;
     }
+    if (autoModeFlag == true){
+        Log.error("Can't do this during auto mode...");
+        return;
+    }
     Log.notice("-> M101 set PWM off");
     setOutputOff();
 }
@@ -132,6 +136,10 @@ void cmd_M102(MyCommandParser::Argument *args, char *response)
 {
     if (homingFlag == true){
         Log.error("Can't do this during homing...");
+        return;
+    }
+    if (autoModeFlag == true){
+        Log.error("Can't do this during auto mode...");
         return;
     }
     Log.notice("-> M102 touch mode:...");
@@ -145,6 +153,41 @@ void cmd_M102(MyCommandParser::Argument *args, char *response)
         return;
     }
     touchModeFlag = true;
+}
+
+// auto mode
+void cmd_M103(MyCommandParser::Argument *args, char *response)
+{
+    if (homingFlag == true){
+        Log.error("Can't do this during homing...");
+        return;
+    }
+    if (touchModeFlag == true){
+        Log.error("Can't do this during touch mode...");
+        return;
+    }
+    if (generatorAciveFlag == false){
+        Log.error("Generator must be active for auto Mode...");
+        return;
+    }
+    Log.notice("-> M103 start auto mode:...");
+    delay(100);
+    autoModeFlag = true;
+}
+
+// auto mode off
+void cmd_M104(MyCommandParser::Argument *args, char *response)
+{
+    if (homingFlag == true){
+        Log.error("Can't do this during homing...");
+        return;
+    }
+    if (touchModeFlag == true){
+        Log.error("Can't do this during touch mode...");
+        return;
+    }
+    Log.notice("-> M103 stop auto mode :...");
+    autoModeFlag = false;
 }
 
 void registerCommands()
@@ -168,6 +211,8 @@ void registerCommands()
     parser.registerCommand("M100", "uu", &cmd_M100);
     parser.registerCommand("M101", "", &cmd_M101);
     parser.registerCommand("M102", "", &cmd_M102);
+    parser.registerCommand("M103", "", &cmd_M103);
+    parser.registerCommand("M104", "", &cmd_M104);
 }
 
 void readSerial()

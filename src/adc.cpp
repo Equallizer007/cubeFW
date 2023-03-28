@@ -9,8 +9,17 @@
 SPIClass SPI_ADC(VSPI);
 
 volatile uint16_t adcVoltage = 0;
-volatile bool adcISRflag = false;
-uint16_t gapVoltageThreshold = calcADCInputVoltage(30);
+volatile bool adcFlagL = false;
+volatile bool adcFlagH = false;
+volatile bool adcResetCounterFlag = false;
+
+unsigned adcCounterMax = 10;
+unsigned adcCounterL = 0;
+unsigned adcCounterH = 0;
+
+uint16_t adcThresholdL = calcADCInputVoltage(5);
+uint16_t adcThresholdH = calcADCInputVoltage(30);
+
 
 namespace
 {
@@ -18,9 +27,30 @@ namespace
 
     void IRAM_ATTR adcISR()
     {
-        if (adcVoltage < gapVoltageThreshold)
+        if (adcResetCounterFlag){
+            adcCounterH = 0;
+            adcCounterL = 0;
+            adcFlagH = false;
+            adcFlagL = false;
+            adcResetCounterFlag = false;
+        }
+        uint16_t adcVoltage2 = _readADC();
+        //Serial.println(adcVoltage2);
+        if (adcVoltage2 < adcThresholdL)
         {
-            adcISRflag = true;
+            if (++adcCounterL >= adcCounterMax){
+                adcFlagL = true;
+            }
+        }
+        else if (adcVoltage2 > adcThresholdH)
+        {
+            if (++adcCounterH >= adcCounterMax){
+                adcFlagH = true;
+            }
+        }
+        else{
+            adcCounterH--;
+            adcCounterL--;
         }
     }
 }
@@ -33,6 +63,7 @@ void activateADCinterrupt()
 void adcTask(void *param)
 {
     Log.trace("adcTask started on core %d ...\n", xPortGetCoreID());
+    Serial.printf("thresholdH: %d thresholdL: %d\n", adcThresholdH, adcThresholdL);
     SPI_ADC.begin();
     pinMode(PIN_ADC, OUTPUT);
     digitalWrite(PIN_ADC, HIGH);
@@ -45,12 +76,7 @@ void adcTask(void *param)
             Serial.printf("<ADC> raw:%d calc:%.2f \n",adcVoltage, calcVoltage(adcVoltage));
             ttimer = millis();
         }
-        
-        if (adcISRflag)
-        {
-            //Serial.println("Hi Threshold");
-            adcISRflag = false;
-        }
+        delay(100);
     }
     Log.trace("adcTask closed ...\n");
 }

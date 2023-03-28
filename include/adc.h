@@ -93,3 +93,5 @@ inline uint16_t calcADCInputVoltage(float voltage)
 {
     return static_cast<uint16_t>((voltage / VOLTAGE_DIVIDER_FACTOR) / (ADC_VREF / ((1 << ADC_NUM_BITS) - 1)) * (1 << 4));
 }
+
+extern volatile bool adcFlagL, adcFlagH, adcResetCounterFlag;

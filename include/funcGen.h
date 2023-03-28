@@ -19,3 +19,5 @@ void setF2(bool val);
 void setOutputOff();
 
 bool setFunc(unsigned long onTime, unsigned long offTime);
+
+extern bool generatorAciveFlag;

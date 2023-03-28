@@ -22,5 +22,5 @@ void stepperDisable();
 void movementTask(void* args);
 void setNewTargetPosition(double newPos);
 
-extern bool homingFlag, stopFlag, touchModeFlag, relativePositioningFlag;
+extern bool homingFlag, stopFlag, touchModeFlag, autoModeFlag, relativePositioningFlag;
 extern int targetSteps, currentSteps;
