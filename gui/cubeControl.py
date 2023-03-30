@@ -4,6 +4,7 @@ import sv_ttk  # pip install sv-ttk
 import serial.tools.list_ports
 import serial
 import threading
+import re
 
 
 class CubeControlApp:
@@ -16,6 +17,10 @@ class CubeControlApp:
         self.app.title("CUBEcontrol")
         self.app.geometry("800x500")
         self.app.resizable(False, False)
+
+        self.adc_pattern = re.compile(r"<ADC>.*calc:(\d+\.\d+)V")
+        self.pos_pattern = re.compile(r"POS> homed:(\d) steps:(\d+) pos:(\d+\.\d{4})")
+
 
         self.setup_ui()
 
@@ -112,7 +117,7 @@ class CubeControlApp:
         selected_device = self.device_dropdown.get()
         print(f"Connecting to {selected_device}...")
         try:
-            self.device = serial.Serial(selected_device, 9600, timeout=1)
+            self.device = serial.Serial(selected_device, 115200, timeout=1)
         except Exception as e:
             messagebox.showerror(
                 "Error connecting to device!",
@@ -131,6 +136,9 @@ class CubeControlApp:
             self.update_console_text(
                 f"Connected to {self.device.port} @  baudrate {self.device.baudrate}"
             )
+            #send intial messages
+            self.send_msg("M0 ;restart device")
+            self.send_msg("M1 500 ;set report interval to 500ms")
             self.serial_thread.start()
 
     def disconnect_device(self) -> None:
@@ -181,61 +189,90 @@ class CubeControlApp:
         )
         self.control_frame.grid(column=0, row=1, columnspan=3, sticky="nesw")
 
+        # ADC LabelFrame
+        self.adc_label_frame = ttk.LabelFrame(
+            self.control_frame, text="ADC", padding=0
+        )
+        self.adc_label_frame.grid(column=0, row=0, columnspan=3, sticky="nesw", padx=0, pady=5)
+
+        # Current adc_voltage label
+        self.adc_voltage_label = ttk.Label(
+            self.adc_label_frame,
+            text="ADC voltage: ?"
+        )
+        self.adc_voltage_label.grid(column=0, row=0, pady=5, padx=(10, 0))
+
+        # Movement LabelFrame
+        self.movement_label_frame = ttk.LabelFrame(
+            self.control_frame, text="Manual Movement", padding=0
+        )
+        self.movement_label_frame.grid(column=0, row=1, columnspan=3, sticky="nesw", padx=0, pady=5)
+
         # Home button
         self.home_button = ttk.Button(
-            self.control_frame,
-            text="Home Z",
+            self.movement_label_frame,
+            text="Home",
+            command=lambda: self.send_msg("G28 ;home")
         )
-        self.home_button.grid(column=0, row=2, pady=5)
+        self.home_button.grid(column=0, row=3, pady=5, padx=(10, 0), sticky="w" )
 
-        #Current position label
+        # Current position label
         self.current_position_label = ttk.Label(
-            self.control_frame,
-            text="Current Position: 0µm"
+            self.movement_label_frame,
+            text="?"
         )
-        self.current_position_label.grid(column=0, row=0, pady=5, padx = (20,0))
+        self.current_position_label.grid(column=0, row=0, pady=5, padx=(10, 0))
 
-        #Current steps label
+        # Current steps label
         self.current_steps_label = ttk.Label(
-            self.control_frame,
-            text="Current Steps: 0"
+            self.movement_label_frame,
+            text="Steps: ?"
         )
-        self.current_steps_label.grid(column=1, row=0, pady=5, padx = (20,0))
+        self.current_steps_label.grid(column=1, row=0, pady=5, padx=(0, 0))
+
+        # Homed label
+        self.homed_label = ttk.Label(
+            self.movement_label_frame,
+            text="Not Homed"
+        )
+        self.homed_label.grid(column=2, row=0, pady=5, padx=(0, 0))
 
         # Up arrow button
         self.up_arrow_button = ttk.Button(
-            self.control_frame,
-            text="↑ Move Up",
+            self.movement_label_frame,
+            text="↑ Up",
+            # command = lambda: self.send_msg(f"G1 Z{self.movement_steps_dropdown["text"])} ; move up")
         )
-        self.up_arrow_button.grid(column=0, row=1, pady=5 )
+        self.up_arrow_button.grid(column=0, row=1, pady=5, padx=(10, 0), sticky="w" )
 
         # Down arrow button
         self.down_arrow_button = ttk.Button(
-            self.control_frame,
-            text="↓ Move Down",
+            self.movement_label_frame,
+            text="↓ Down",
         )
-        self.down_arrow_button.grid(column=1, row=1, pady=5 )
+        self.down_arrow_button.grid(column=1, row=1, pady=5, padx=(0, 0), sticky="w" )
 
         # Movement Step dropdown
-        movement_steps = ["0.5µm", "1µm", "2.5µm", "5µm", "10µm", "100µm", "1mm", "5mm"]
+        self.movement_steps = [0.5, 1, 2.5, 5, 10, 100, 1000, 5000]
+        movement_steps_labels = ["0.5µm", "1µm", "2.5µm", "5µm", "10µm", "100µm", "1mm", "5mm"]
         self.movement_steps_dropdown = ttk.Combobox(
-            self.control_frame,
-            values=movement_steps,
+            self.movement_label_frame,
+            values=movement_steps_labels,
             font=("Arial", 11),
             state="readonly",
             width=5,
         )
         self.movement_steps_dropdown.current(0)
-        self.movement_steps_dropdown.grid(column=2, row=1)
+        self.movement_steps_dropdown.grid(column=2, row=1, padx = 0)
 
         # Restart button
         self.restart_button = ttk.Button(
-            self.control_frame,
+            self.movement_label_frame,
             text="Restart",
+            command = lambda: self.send_msg("M0 ;restart")
         )
-        self.restart_button.grid(column=1, row=2, pady=5)
+        self.restart_button.grid(column=1, row=3, pady=5, padx=(0, 0), sticky="w" )
 
-        
 
     def remove_control_widgets(self) -> None:
         self.logo_text_label.grid(column=0, row=0, sticky="")
@@ -255,7 +292,7 @@ class CubeControlApp:
         )
         console_label.grid(column=0, row=0, columnspan=3, sticky="w")
 
-        self.console_text = tk.Text(self.console_frame, wrap=tk.WORD, state="disabled")
+        self.console_text = tk.Text(self.console_frame, wrap=tk.WORD, state="disabled", font=("Arial", 10))
         self.console_text.grid(
             column=0, row=1, columnspan=3, sticky="nsew"
         )  # Fill available space
@@ -315,7 +352,7 @@ class CubeControlApp:
         toggle_button.grid(column=1, row=4, sticky="w", pady=(10, 0))
 
         # Create a toggle button and bind it to the show_all function
-        self.show_all_enabled = tk.BooleanVar(value=True)
+        self.show_all_enabled = tk.BooleanVar(value=False)
         toggle_button = ttk.Checkbutton(
             self.console_frame, text="Show All", variable=self.show_all_enabled
         )
@@ -330,6 +367,13 @@ class CubeControlApp:
     def update_console_text(self, new_text: str) -> None:
         if new_text[-1] != "\n":
             new_text += "\n"
+        
+        #filter esp-inernal messages
+        if not self.show_all_enabled.get() and '\r\n' in new_text and "parse" not in new_text:
+            return
+        
+        new_text = new_text.replace('\r','')
+        print(">> ", new_text.encode())
         self.console_text.configure(state="normal")
         self.console_text.insert("end", new_text)
         self.console_text.configure(state="disabled")
@@ -345,6 +389,19 @@ class CubeControlApp:
     def remove_console(self) -> None:
         self.console_frame.destroy()
 
+
+    def send_msg(self, input_data):
+        if len(input_data) <= 0:
+                return
+        if input_data[-1] != "\n":
+            input_data += "\n"
+        self.device.write(input_data.encode())
+        self.console_text.config(state="normal")
+        self.update_console_text(f">>> {input_data}")
+        self.console_text.config(state="disabled")
+        self.console_input.delete(0, tk.END)
+
+
     def send_serial(self):
         if self.device is not None:
             input_data = self.console_input.get()
@@ -352,25 +409,38 @@ class CubeControlApp:
                 return
             if input_data == self.placeholder_text:
                 return
-            if input_data[-1] != "\n":
-                input_data += "\n"
-            self.device.write(input_data.encode())
-            self.console_text.config(state="normal")
-            self.update_console_text(f">>> {input_data}")
-            self.console_text.config(state="disabled")
-            self.console_input.delete(0, tk.END)
+            self.send_msg(input_data)
+            
         else:
             self.console_text.config(state="normal")
             self.update_console_text("Serial port not connected.\n")
             self.console_text.config(state="disabled")
 
+    def parse_msg(self,msg):
+        
+        match_adc_voltage = self.adc_pattern.search(msg)
+        if match_adc_voltage:
+            voltage = float(match_adc_voltage.group(1))
+            self.adc_voltage_label.configure(text=f"ADC voltage: {voltage}V")
+            return 1
+        pos_match = self.pos_pattern.search(msg)
+
+        if pos_match:
+            homed = bool(int(pos_match.group(1)))
+            steps = int(pos_match.group(2))
+            pos = float(pos_match.group(3))
+            self.current_steps_label.configure(text = f"Steps: {steps}")
+            self.current_position_label.configure(text = f"{pos:.4f}mm")
+            self.homed_label.configure(text = "Homed" if homed else "Not Homed")
+            return 1
+        return 0
+
     def read_serial(self):
         while not self.stop_serial and self.device is not None:
             if self.device.inWaiting() > 0:
                 data = self.device.readline().decode()
-                self.console_text.config(state="normal")
-                self.console_text.insert(tk.END, f"{data}")
-                self.console_text.config(state="disabled")
+                if self.parse_msg(data) == 0:
+                    self.update_console_text(data)
         # print("closed")
         if self.device is not None:
             self.device.close()

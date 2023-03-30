@@ -20,7 +20,9 @@ bool stepperHome(bool dir);
 void stepperEnable();
 void stepperDisable();
 void movementTask(void* args);
+void movementReport();
 void setNewTargetPosition(double newPos);
 
 extern bool homingFlag, stopFlag, touchModeFlag, autoModeFlag, relativePositioningFlag;
 extern int targetSteps, currentSteps;
+extern unsigned int position_report_interval;

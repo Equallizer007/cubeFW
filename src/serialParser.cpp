@@ -66,10 +66,10 @@ void cmd_M0(MyCommandParser::Argument *args, char *response)
 // send report
 void cmd_M1(MyCommandParser::Argument *args, char *response)
 {
-    double voltage = calcVoltage(adcVoltage);
-    char report[128];
-    sprintf(report, "<REPORT> raw: %d adc:%.2f rel_pos:%d current_steps:%u target_steps:%u\n",adcVoltage, voltage, relativePositioningFlag, currentSteps, targetSteps);
-    Serial.print(report);
+    uint val = args[0].asUInt64;
+    Log.info("Set new report interval to %dms\n");
+    //adc_report_interval = val;
+    //position_report_interval = val;
 }
 
 // enable stepper
@@ -203,7 +203,7 @@ void registerCommands()
 
     // M - commands
     parser.registerCommand("M0", "", &cmd_M0);
-    parser.registerCommand("M1", "", &cmd_M1);
+    parser.registerCommand("M1", "u", &cmd_M1);
     parser.registerCommand("M17", "", &cmd_M17);
     parser.registerCommand("M18", "", &cmd_M18);
     parser.registerCommand("M20", "u", &cmd_M20);
@@ -222,6 +222,14 @@ void readSerial()
         char line[128];
         size_t lineLength = Serial.readBytesUntil('\n', line, 127);
         line[lineLength] = '\0';
+
+        // Find the index of the ';' comment character 
+        char* semicolonPtr = strchr(line, ';');
+        if (semicolonPtr != nullptr)
+        {
+            // Overwrite the ';' character with a null terminator, effectively truncating the string
+            *semicolonPtr = '\0';
+        }
 
         char response[MyCommandParser::MAX_RESPONSE_SIZE];
         parser.processCommand(line, response);
@@ -248,7 +256,7 @@ void serialParserInit()
         "serialParserTask", /* String with name of task. */
         10000,     /* Stack size in bytes. */
         NULL,      /* Parameter passed as input of the task */
-        0,         /* Priority of the task. */
+        1,         /* Priority of the task. */
         NULL,      /* Task handle. */
         1);        /* which core to run */
 }

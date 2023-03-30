@@ -13,6 +13,7 @@ volatile bool adcFlagL = false;
 volatile bool adcFlagH = false;
 volatile bool adcResetCounterFlag = false;
 
+unsigned adc_report_interval = 1000;
 unsigned adcCounterMax = 10;
 unsigned adcCounterL = 0;
 unsigned adcCounterH = 0;
@@ -63,7 +64,7 @@ void activateADCinterrupt()
 void adcTask(void *param)
 {
     Log.trace("adcTask started on core %d ...\n", xPortGetCoreID());
-    Serial.printf("thresholdH: %d thresholdL: %d\n", adcThresholdH, adcThresholdL);
+    Log.trace("thresholdH: %d thresholdL: %d\n", adcThresholdH, adcThresholdL);
     SPI_ADC.begin();
     pinMode(PIN_ADC, OUTPUT);
     digitalWrite(PIN_ADC, HIGH);
@@ -72,11 +73,10 @@ void adcTask(void *param)
     for (;;)
     {
         adcVoltage = _readADC();
-        if (millis()-ttimer > 3000){
-            Serial.printf("<ADC> raw:%d calc:%.2f \n",adcVoltage, calcVoltage(adcVoltage));
+        if (millis()-ttimer > adc_report_interval){
+            Serial.printf("<ADC> raw:%d calc:%.2fV \n",adcVoltage, calcVoltage(adcVoltage));
             ttimer = millis();
         }
-        delay(100);
     }
     Log.trace("adcTask closed ...\n");
 }

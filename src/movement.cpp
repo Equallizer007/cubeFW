@@ -9,12 +9,15 @@
 
 bool homingFlag = false, stopFlag = false, touchModeFlag = false, autoModeFlag = false, relativePositioningFlag = true;
 int targetSteps = 0, currentSteps = 0;
+uint position_report_interval = 1000;
 
 namespace
 {
     TMC2209Stepper driver(&TMC_Z_SERIAL, R_SENSE, DRIVER_ADDRESS);
     SpeedyStepper stepper;
     ESP32Encoder encoder;
+    long ttimer = 0;
+    bool homed = false;
 
     const int mcFactor()
     {
@@ -176,6 +179,7 @@ bool stepperHome(bool dir)
     stepper.setAccelerationInMillimetersPerSecondPerSecond(STEPPER_ACC_DEFAULT);
     stepper.setSpeedInMillimetersPerSecond(STEPPER_SPEED_DEFAULT);
     Log.notice("homing complete\n");
+    homed = true;
     stepperStop();
     return true;
 }
@@ -183,22 +187,28 @@ bool stepperHome(bool dir)
 void touchMode(){
     stepperEnable();
     stepper.setAccelerationInMillimetersPerSecondPerSecond(STEPPER_ACC_DEFAULT);
-    stepper.setSpeedInMillimetersPerSecond(STEPPER_SPEED_DEFAULT);
-    stepper.setupRelativeMoveInMillimeters((STEPPER_LEN_LINEAR_AXIS + 5));
-    while (!stepper.processMovement())
+    int16_t minVoltage = calcADCInputVoltage(TOUCHMODE_MIN_VOLTAGE);
+    while (adcVoltage > minVoltage)
     {
-        int16_t minVoltage = calcADCInputVoltage(TOUCHMODE_MIN_VOLTAGE);
-        if (adcVoltage < minVoltage)
-        {
-            Log.notice("Touch activated: Stopping movement\n");
-            stepper.setupStop();
-            targetSteps = encoder.getCount();
-            break;
-        }
+        movementReport();
+        stepper.moveRelativeInSteps(1);
     }
+    Log.trace("Touch activated: Stopping movement\n");
+    targetSteps = encoder.getCount();
+    delay(1000);
+    Log.trace("move back...\n");
+    while (adcVoltage < minVoltage){
+        movementReport();
+        stepper.moveRelativeInSteps(-1);
+        delay(1);
+    }
+    delay(500);
+    targetSteps = encoder.getCount();
+    Log.trace("move back finished steps: %d\n", targetSteps);
     touchModeFlag = false;
     setF1(false);
     setF2(false);
+    
 }
 
 void autoMode(){
@@ -206,6 +216,7 @@ void autoMode(){
     stepper.setAccelerationInMillimetersPerSecondPerSecond(STEPPER_ACC_DEFAULT);
     stepper.setSpeedInMillimetersPerSecond(STEPPER_SPEED_DEFAULT);
     while (autoModeFlag){
+        movementReport();
         if (adcFlagH){
             //Serial.println("flagH");
             stepper.moveRelativeInSteps(1);
@@ -217,12 +228,17 @@ void autoMode(){
             adcResetCounterFlag = true;
         }
     }
-    stepper.setupStop();
     targetSteps = encoder.getCount();
     Serial.println("end auto");
 }
 
-
+void movementReport(){
+    if (millis()-ttimer > position_report_interval){
+        unsigned currentSteps = encoder.getCount();
+        Serial.printf("<POS> homed:%d steps:%d pos:%.4f\n",homed, currentSteps, (float)currentSteps/ENCODER_STEPS_PER_MM);
+        ttimer = millis();
+    }
+}
 
 void movementTask(void *param)
 {
@@ -230,6 +246,7 @@ void movementTask(void *param)
     bool moveStarted = false;
     for (;;)
     {
+        movementReport();
         // check if home command was received
         if (homingFlag)
         {
@@ -248,6 +265,7 @@ void movementTask(void *param)
             Log.notice("start auto Mode\n");
             autoMode();
         }
+
         currentSteps = encoder.getCount();
         int curTargetSteps = targetSteps;
         if (stepper.motionComplete() && digitalRead(PIN_Z_EN) == LOW)

@@ -95,3 +95,4 @@ inline uint16_t calcADCInputVoltage(float voltage)
 }
 
 extern volatile bool adcFlagL, adcFlagH, adcResetCounterFlag;
+extern unsigned int adc_report_interval;
