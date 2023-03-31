@@ -10,154 +10,87 @@ import os
 # current file path to allow the app to be called from outside its own workspace
 current_path = os.path.dirname(os.path.realpath(__file__))
 
-
 class ConfigWindow:
     def __init__(self, parent):
         # refernce to the window and parent
         self.window = None
         self.parent = parent
 
-        # default config variables
-        ontime_var = 4000
-        offtime_var = 12000
-        lower_thr_var = 3.5
-        upper_thr_var = 30.0
-        auto_sens_var = 10
-
-        self.config = {
-            "ontime": [ontime_var, StringVar(value=str(ontime_var))],
-            "offtime": [offtime_var, StringVar(value=str(offtime_var))],
-            "lower_thr": [lower_thr_var, StringVar(value=str(lower_thr_var))],
-            "upper_thr": [upper_thr_var, StringVar(value=str(upper_thr_var))],
-            "auto_sens": [auto_sens_var, StringVar(value=str(auto_sens_var))],
+        # Define default configurations with their names, display texts, and data types
+        default_config = {
+            "ontime": [4000, "OnTime (ns):", "int"],
+            "offtime": [12000, "OffTime (ns):", "int"],
+            "lower_thr": [3.5, "Lower Threshold (V):", "float"],
+            "upper_thr": [30.0, "Upper Threshold (V):", "float"],
+            "auto_sens": [10, "Sensitivity:", "int"],
         }
 
+        # Create the config dictionary with StringVars for each configuration value
+        self.config = {k: [v[0], StringVar(value=str(v[0])), v[1], v[2]] for k, v in default_config.items()}
+
     def open(self):
+        # Check if the window already exists, and if so, destroy it
         if self.window and self.window.winfo_exists():
-            self.window.destroy()  # Close the existing config window
+            self.window.destroy()
             return
 
+        # Create the configuration window and set its properties
         self.window = tk.Toplevel(self.parent)
         self.window.title("Config")
         self.window.resizable(False, False)
-
-        # Make the window spawn in front of the main window
         self.window.transient(self.parent)
 
         # Add inner padding using a ttk.Frame
         inner_frame = ttk.Frame(self.window, padding=(20, 20, 20, 20))
         inner_frame.pack(fill="both", expand=True)
+        self.window.geometry("+%d+%d" % (self.parent.winfo_x() + 400, self.parent.winfo_y() + 200))
 
-        # Position the window relative to the main window
-        self.window.geometry(
-            "+%d+%d" % (self.parent.winfo_x() + 400, self.parent.winfo_y() + 200)
-        )
-        # Generator Config LabelFrame
-        generator_config_label_frame = ttk.LabelFrame(
-            inner_frame, text="Generator Settings", padding=10
-        )
-        generator_config_label_frame.grid(
-            column=0, row=0, columnspan=3, sticky="nesw", padx=0, pady=5
-        )
+        # Define the label frames' information
+        label_frames = [
+            ("Generator Settings", 0, 0, ("ontime", "offtime")),
+            ("ADC Settings", 0, 1, ("lower_thr", "upper_thr")),
+            ("Automode Settings", 0, 2, ("auto_sens",)),
+        ]
 
-        # on Time
-        self.ontime_label = ttk.Label(generator_config_label_frame, text="OnTime (ns):")
-        self.ontime_label.grid(column=0, row=0)
-        self.ontime_entry = ttk.Entry(
-            generator_config_label_frame,
-            width=9,
-            validate="focusout",
-            validatecommand=(self.window.register(lambda s: self.validate_entry(s, "ontime", int)),"%P"),
-            textvariable=self.config["ontime"][1],
-        )
-        self.ontime_entry.grid(column=1, row=0, sticky="nesw", padx=15)
+        # Create the label frames and their corresponding entries
+        for lf_text, lf_col, lf_row, lf_vars in label_frames:
+            label_frame = ttk.LabelFrame(inner_frame, text=lf_text, padding=10)
+            label_frame.grid(column=lf_col, row=lf_row, columnspan=3, sticky="nesw", padx=0, pady=5)
+            for i, var in enumerate(lf_vars):
+                ttk.Label(label_frame, text=self.config[var][2]).grid(column=0, row=i)
+                ttk.Entry(
+                    label_frame,
+                    width=9,
+                    validate="focusout",
+                    validatecommand=(
+                        self.window.register(lambda s, v=var: self.validate_entry(s, v)),
+                        "%P",
+                    ),
+                    textvariable=self.config[var][1],
+                ).grid(column=1, row=i, sticky="nesw", padx=15)
 
-        # off Time
-        self.offtime_label = ttk.Label(
-            generator_config_label_frame, text="OffTime (ns):"
-        )
-        self.offtime_label.grid(column=0, row=1)
-        self.offtime_entry = ttk.Entry(
-            generator_config_label_frame,
-            width=9,
-            validate="focusout",
-            validatecommand=(self.window.register(lambda s: self.validate_entry(s, "offtime", int)),"%P"),
-            textvariable=self.config["offtime"][1],
-        )
-        self.offtime_entry.grid(column=1, row=1, sticky="nesw", padx=15)
-
-        # ADC Config LabelFrame
-        generator_config_label_frame = ttk.LabelFrame(
-            inner_frame, text="ADC Settings", padding=10
-        )
-        generator_config_label_frame.grid(
-            column=0, row=1, columnspan=3, sticky="nesw", padx=0, pady=5
-        )
-
-        # lower threshold
-        self.lower_thr_label = ttk.Label(
-            generator_config_label_frame, text="Lower Threshold (V):"
-        )
-        self.lower_thr_label.grid(column=0, row=0)
-        self.lower_thr_entry = ttk.Entry(
-            generator_config_label_frame,
-            width=9,
-            validate="focusout",
-            validatecommand=(self.window.register(lambda s: self.validate_entry(s, "lower_thr", float)),"%P"),
-            textvariable=self.config["lower_thr"][1],
-        )
-        self.lower_thr_entry.grid(column=1, row=0, sticky="nesw", padx=15)
-
-        # higher treshold
-        self.upper_thr_label = ttk.Label(
-            generator_config_label_frame, text="Upper Threshold (V):"
-        )
-        self.upper_thr_label.grid(column=0, row=1)
-        self.upper_thr_entry = ttk.Entry(
-            generator_config_label_frame,
-            width=9,
-            validate="focusout",
-            validatecommand=(self.window.register(lambda s: self.validate_entry(s, "upper_thr", float)),"%P"),
-            textvariable=self.config["upper_thr"][1],
-        )
-        self.upper_thr_entry.grid(column=1, row=1, sticky="nesw", padx=15)
-
-        # auto mode Config LabelFrame
-        automode_config_label_frame = ttk.LabelFrame(
-            inner_frame, text="Automode Settings", padding=10
-        )
-        automode_config_label_frame.grid(
-            column=0, row=2, columnspan=3, sticky="nesw", padx=0, pady=5
-        )
-
-        # auto detection parameter
-        self.automode_label = ttk.Label(
-            automode_config_label_frame, text="Sensitivity:"
-        )
-        self.automode_label.grid(column=0, row=0)
-        self.automode_entry = ttk.Entry(
-            automode_config_label_frame,
-            width=9,
-            validate="focusout",
-            validatecommand=(self.window.register(lambda s: self.validate_entry(s, "auto_sens", int)),"%P"),
-            textvariable=self.config["auto_sens"][1],
-        )
-        self.automode_entry.grid(column=1, row=0, sticky="nesw", padx=15)
-
-    def validate_entry(self, input_str, strvar, type):
+    def validate_entry(self, input_str, strvar):
+        # Initialize input_value and get the data type from the config dictionary
         input_value = 0
+        ttype = self.config[strvar][3]
+
+        # Try to parse the input string based on the data type
         try:
-            if type == int:
+            if ttype == "int":
                 input_value = int(input_str)
-            elif type == float:
+            elif ttype == "float":
                 input_value = float(input_str)
             else:
                 input_value = -1
+
+            # Check if the input value is within the allowed range
             if 0 < input_value <= 100000:
+                # If the input value is valid, update the configuration value
                 self.config[strvar][0] = input_value
                 return True
         except ValueError:
             pass
+        # If the input value is not valid, reset the entry to the last valid value
         self.config[strvar][1].set(str(self.config[strvar][0]))
         return False
 
@@ -181,89 +114,79 @@ class CubeControlApp:
         self.setup_ui()
 
     def setup_ui(self) -> None:
+        # set theme
         sv_ttk.set_theme("light")
 
-        # Create right frame for the image
-        self.right_frame = ttk.Frame(
-            self.app,
-            height=500,
-            width=400,
-            padding=0,
-            borderwidth=0,
-        )
-        self.right_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=False)
-        self.right_frame.pack_propagate(False)
-        self.right_frame.grid_propagate(False)
+        # Create frames and configure grid
+        self.right_frame, self.left_frame = self.create_frames(self.app)
 
-        # Create left frame for the labels and dropdown
-        self.left_frame = ttk.Frame(
-            self.app,
-            height=500,
-            width=400,
-            padding=20,
-            borderwidth=0,
-        )
-        self.left_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=False)
-        self.left_frame.pack_propagate(False)
-        self.left_frame.grid_propagate(False)
+        # Load and display the image, text, and logo in the right frame
+        self.display_image_text_logo()
 
-        # Configure grid in the left frame
+        # Add the select device label and dropdown in the left frame
+        self.add_device_selection()
+
+        # Schedule the automatic update of the serial devices list
+        self.update_serial_handle = self.app.after(0, self.update_serial_devices)
+
+    def create_frames(self, app):
+        frame_settings = [
+            ("right_frame", tk.RIGHT, 400, 500, 0),
+            ("left_frame", tk.LEFT, 400, 500, 20),
+        ]
+
+        for name, side, width, height, padding in frame_settings:
+            frame = ttk.Frame(app, height=height, width=width, padding=padding, borderwidth=0)
+            frame.pack(side=side, fill=tk.BOTH, expand=False)
+            frame.pack_propagate(False)
+            frame.grid_propagate(False)
+            setattr(self, name, frame)
+
         self.left_frame.columnconfigure(1, weight=1)
         self.left_frame.rowconfigure(0, weight=1)
 
-        # Load and display the image in the right frame
-        image_file = current_path + "/img/background.png"
-        self.image = tk.PhotoImage(file=image_file)
+        return self.right_frame, self.left_frame
 
-        # Create a Canvas widget to hold the image and the text
-        self.image_canvas = tk.Canvas(
-            self.right_frame, width=400, height=500, bd=0, highlightthickness=0
-        )
+    def display_image_text_logo(self):
+        self.image = tk.PhotoImage(file=current_path + "/img/background.png")
+        self.image_canvas = tk.Canvas(self.right_frame, width=400, height=500, bd=0, highlightthickness=0)
         self.image_canvas.grid()
-
-        # Display the image on the Canvas
         self.image_canvas.create_image(0, 0, anchor=tk.NW, image=self.image)
 
-        # Add the semi-transparent text in the lower right corner over the image
         version_text = "Marcus Voß 2023"
         self.image_canvas.create_text(330, 480, text=version_text)
 
-        # Logo image
         self.logo_image = tk.PhotoImage(file=current_path + "/img/logo.png")
-        self.logo_image_label = ttk.Label(self.left_frame, image=self.logo_image)
-        self.logo_image_label.grid(column=0, row=0, columnspan=3)
-
-        # Logo text
-        self.logo_text_label = ttk.Label(
-            self.left_frame,
-            text="CUBEcontrol",
-            anchor="center",
-            font=("Arial", 24, "bold"),
-            width=400,
-        )
-        self.logo_text_label.grid(column=0, row=0, columnspan=3)
-
-        # Label
-        self.select_device_label = ttk.Label(
-            self.left_frame, text="Select a Device:", font=("Arial", 12)
-        )
-        self.select_device_label.grid(
-            column=0, row=1, sticky=tk.W, columnspan=3, pady=10, padx=10
-        )
-
-        # Serial devices dropdown
-        self.serial_devices = [
-            str(port.device) for port in serial.tools.list_ports.comports()
+        logo_labels = [
+            ("logo_image_label", self.logo_image, None, 0, 0, 3),
+            ("logo_text_label", None, "CUBEcontrol", 0, 0, 3),
         ]
+
+        for name, image, text, col, row, colspan in logo_labels:
+            label = ttk.Label(
+                self.left_frame,
+                image=image,
+                text=text,
+                anchor="center",
+                font=("Arial", 24, "bold"),
+                width=400,
+            )
+            label.grid(column=col, row=row, columnspan=colspan)
+            setattr(self, name, label)
+
+    def add_device_selection(self):
+        self.select_device_label = ttk.Label(self.left_frame, text="Select a Device:", font=("Arial", 12))
+        self.select_device_label.grid(column=0, row=1, sticky=tk.W, columnspan=3, pady=10, padx=10)
+
+        self.serial_devices = [str(port.device) for port in serial.tools.list_ports.comports()]
         self.device_dropdown = ttk.Combobox(
             self.left_frame,
             values=self.serial_devices,
             font=("Arial", 12),
             state="disabled",
         )
-        self.device_dropdown.grid(column=0, row=2, sticky=(tk.W, tk.E), padx=10)
+        self.device_dropdown.grid(column=0, row=2, padx=10)
 
-        # Connect button
         self.connect_button = ttk.Button(
             self.left_frame,
             text="Connect",
@@ -272,9 +195,6 @@ class CubeControlApp:
             command=self.connect_device,
         )
         self.connect_button.grid(column=1, row=2, sticky=tk.W)
-
-        # Schedule the automatic update of the serial devices list
-        self.update_serial_handle = self.app.after(0, self.update_serial_devices)
 
     def connect_device(self) -> None:
         selected_device = self.device_dropdown.get()
@@ -289,16 +209,12 @@ class CubeControlApp:
             return
         if self.device.is_open:
             self.stop_serial = False
-            self.connect_button.configure(
-                text="Disconnect", command=self.disconnect_device
-            )
+            self.connect_button.configure(text="Disconnect", command=self.disconnect_device)
             self.device_dropdown.configure(state="disabled")
             self.create_control_widgets()
             self.create_console()
             self.serial_thread = threading.Thread(target=self.read_serial)
-            self.update_console_text(
-                f"Connected to {self.device.port} @  baudrate {self.device.baudrate}"
-            )
+            self.update_console_text(f"Connected to {self.device.port} @  baudrate {self.device.baudrate}")
             # send intial messages
             self.send_msg("M0 ;restart device")
             self.send_msg("M1 500 ;set report interval to 500ms")
@@ -308,50 +224,68 @@ class CubeControlApp:
         print("Disconnected from device")
         self.stop_serial = True
         self.serial_thread.join()
-        self.connect_button.configure(
-            text="Connect", command=self.connect_device, state="enabled"
-        )
+        self.connect_button.configure(text="Connect", command=self.connect_device, state="enabled")
         self.device_dropdown.configure(state="readonly")
         self.select_device_label.grid()
         self.remove_console()
         self.remove_control_widgets()
 
     def fill_movement_frame(self, parent):
-        # Current position label
-        self.current_position_label = ttk.Label(parent, text="?")
-        self.current_position_label.grid(column=0, row=0, pady=0, padx=(10, 0))
+        # Labels and buttons settings
+        widget_settings = [
+            ("current_position_label", ttk.Label, "?", 0, 0, {}),
+            ("current_steps_label", ttk.Label, "Steps: ?", 1, 0, {}),
+            ("homed_label", ttk.Label, "Not Homed", 2, 0, {}),
+            (
+                "up_arrow_button",
+                ttk.Button,
+                "↑ Up",
+                0,
+                1,
+                {"sticky": "nesw", "pady": 10},
+            ),
+            (
+                "down_arrow_button",
+                ttk.Button,
+                "↓ Down",
+                1,
+                1,
+                {"sticky": "nesw", "pady": 10, "padx": (15, 15)},
+            ),
+            ("home_button", ttk.Button, "Home", 0, 3, {"sticky": "nesw"}),
+            (
+                "restart_button",
+                ttk.Button,
+                "Restart",
+                1,
+                3,
+                {"sticky": "nesw", "padx": (15, 15)},
+            ),
+            ("touch_button", ttk.Button, "Touch", 2, 3, {"sticky": "nesw"}),
+        ]
 
-        # Current steps label
-        self.current_steps_label = ttk.Label(parent, text="Steps: ?")
-        self.current_steps_label.grid(column=1, row=0, pady=0, padx=(0, 0))
-
-        # Homed label
-        self.homed_label = ttk.Label(parent, text="Not Homed")
-        self.homed_label.grid(column=2, row=0, pady=0, padx=(0, 0))
-
-        # Up arrow button
-        self.up_arrow_button = ttk.Button(
-            parent,
-            text="↑ Up",
-            width=9,
-            command=lambda: self.send_msg(
+        commands = [
+            None,
+            None,
+            None,
+            lambda: self.send_msg(
                 f"G1 Z-{self.movement_steps[self.movement_steps_dropdown.current()]} ;move up {self.movement_steps_dropdown.get()}"
             ),
-        )
-        self.up_arrow_button.grid(column=0, row=1, pady=10, padx=(0, 0), sticky="nesw")
-
-        # Down arrow button
-        self.down_arrow_button = ttk.Button(
-            parent,
-            text="↓ Down",
-            width=9,
-            command=lambda: self.send_msg(
+            lambda: self.send_msg(
                 f"G1 Z{self.movement_steps[self.movement_steps_dropdown.current()]} ;move down {self.movement_steps_dropdown.get()}"
             ),
-        )
-        self.down_arrow_button.grid(
-            column=1, row=1, pady=10, padx=(15, 15), sticky="nesw"
-        )
+            lambda: self.send_msg("G28 ;home"),
+            lambda: self.send_msg("M0 ;restart"),
+            lambda: self.send_msg("M102 ;touchmode"),
+        ]
+
+        # Create and grid labels and buttons
+        for idx, (name, widget_class, text, col, row, options) in enumerate(widget_settings):
+            widget = widget_class(parent, text=text, width=9)
+            widget.grid(column=col, row=row, **options)
+            if commands[idx] is not None:
+                widget.configure(command=commands[idx])
+            setattr(self, name, widget)
 
         # Movement Step dropdown
         self.movement_steps = [0.5, 1, 2.5, 5, 10, 100, 1000, 5000]
@@ -373,79 +307,45 @@ class CubeControlApp:
             width=6,
         )
         self.movement_steps_dropdown.current(0)
-        self.movement_steps_dropdown.grid(
-            column=2, row=1, pady=10, padx=(0, 0), sticky="w"
-        )
-
-        # Home button
-        self.home_button = ttk.Button(
-            parent,
-            text="Home",
-            width=9,
-            command=lambda: self.send_msg("G28 ;home"),
-        )
-        self.home_button.grid(column=0, row=3, pady=0, padx=(0, 0), sticky="nesw")
-
-        # Restart button
-        self.restart_button = ttk.Button(
-            parent,
-            text="Restart",
-            width=9,
-            command=lambda: self.send_msg("M0 ;restart"),
-        )
-        self.restart_button.grid(column=1, row=3, pady=0, padx=(15, 15), sticky="nesw")
-
-        # Touch button
-        self.touch_button = ttk.Button(
-            parent,
-            text="Touch",
-            width=9,
-            command=lambda: self.send_msg("M102 ;touchmode"),
-        )
-        self.touch_button.grid(column=2, row=3, pady=0, padx=(0, 0), sticky="nesw")
+        self.movement_steps_dropdown.grid(column=2, row=1, pady=10, sticky="w")
 
     def fill_generator_frame(self, parent):
-        # Config Button
-        self.config_button = ttk.Button(
-            parent, text="Config", width=9, command=self.config_window.open
-        )
-        self.config_button.grid(
-            column=0, row=0, pady=(0, 10), padx=(0, 0), sticky="nesw"
-        )
+        # Buttons settings
+        widget_settings = [
+            (
+                "config_button",
+                ttk.Button,
+                "Config",
+                0,
+                0,
+                {"sticky": "nesw", "pady": (0, 10)},
+            ),
+            ("generator_enable_button", ttk.Button, "Enable", 0, 1, {"sticky": "nesw"}),
+            (
+                "generator_disable_button",
+                ttk.Button,
+                "Disable",
+                1,
+                1,
+                {"sticky": "nesw", "padx": (15, 15)},
+            ),
+            ("generator_auto_button", ttk.Button, "Auto", 2, 1, {"sticky": "nesw"}),
+        ]
 
-        # Enable Button
-        self.generator_enable_button = ttk.Button(parent, text="Enable", width=9)
-        self.generator_enable_button.grid(
-            column=0, row=1, pady=0, padx=(0, 0), sticky="nesw"
-        )
+        commands = [
+            self.config_window.open,
+            None,
+            lambda: self.send_msg("M101 ;disable generator"),
+            lambda: self.send_msg("M103 ;auto mode"),
+        ]
 
-        # Disable Button
-        self.generator_disable_button = ttk.Button(
-            parent,
-            text="Disable",
-            width=9,
-            command=lambda: self.send_msg("M101 ;disable generator"),
-        )
-        self.generator_disable_button.grid(
-            column=1, row=1, pady=0, padx=(15, 15), sticky="nesw"
-        )
-
-        # Auto on Button
-        self.generator_auto_button = ttk.Button(
-            parent,
-            text="Auto",
-            width=9,
-            command=lambda: self.send_msg("M103 ;auto mode"),
-        )
-        self.generator_auto_button.grid(
-            column=2, row=1, pady=0, padx=(0, 0), sticky="nesw"
-        )
+        for i, (name, widget_class, text, col, row, options) in enumerate(widget_settings):
+            widget = widget_class(parent, text=text, width=9, command=commands[i])
+            widget.grid(column=col, row=row, **options)
 
     def update_serial_devices(self) -> None:
         # Get the list of serial devices and update the dropdown
-        self.serial_devices = [
-            str(port.device) for port in serial.tools.list_ports.comports()
-        ]
+        self.serial_devices = [str(port.device) for port in serial.tools.list_ports.comports()]
         if self.device == None:
             if len(self.serial_devices) > 0:
                 self.device_dropdown["values"] = self.serial_devices
@@ -461,9 +361,7 @@ class CubeControlApp:
         else:
             if self.device.port not in self.serial_devices:
                 self.disconnect_device()
-                messagebox.showerror(
-                    "Connection Lost!", message="Connection to device lost!"
-                )
+                messagebox.showerror("Connection Lost!", message="Connection to device lost!")
 
         # Schedule the next update
         self.update_serial_handle = self.app.after(1000, self.update_serial_devices)
@@ -475,31 +373,20 @@ class CubeControlApp:
         self.control_frame = ttk.Frame(self.left_frame, padding=10)
         self.control_frame.grid(column=0, row=1, columnspan=2, sticky="w")
 
-        # Generator LabelFrame
-        self.generator_label_frame = ttk.LabelFrame(
-            self.control_frame, text="Generator", padding=10
-        )
-        self.generator_label_frame.grid(
-            column=0, row=0, columnspan=3, sticky="nesw", padx=0, pady=5
-        )
+        frames = [
+            ("generator_label_frame", "Generator"),
+            ("adc_label_frame", "ADC"),
+            ("movement_label_frame", "Movement"),
+        ]
 
-        # ADC LabelFrame
-        self.adc_label_frame = ttk.LabelFrame(self.control_frame, text="ADC", padding=0)
-        self.adc_label_frame.grid(
-            column=0, row=1, columnspan=3, sticky="nesw", padx=0, pady=5
-        )
+        for idx, (name, text) in enumerate(frames):
+            frame = ttk.LabelFrame(self.control_frame, text=text, padding=10)
+            frame.grid(column=0, row=idx, columnspan=3, sticky="nesw", padx=0, pady=5)
+            setattr(self, name, frame)
 
-        # Current adc_voltage label
         self.adc_voltage_label = ttk.Label(self.adc_label_frame, text="ADC voltage: ?")
         self.adc_voltage_label.grid(column=0, row=0, pady=5, padx=(10, 0))
 
-        # Movement LabelFrame
-        self.movement_label_frame = ttk.LabelFrame(
-            self.control_frame, text="Movement", padding=10
-        )
-        self.movement_label_frame.grid(
-            column=0, row=2, columnspan=3, sticky="nesw", padx=0, pady=5
-        )
         self.fill_generator_frame(self.generator_label_frame)
         self.fill_movement_frame(self.movement_label_frame)
 
@@ -510,28 +397,18 @@ class CubeControlApp:
     def create_console(self) -> None:
         # Create a console frame within the right frame
         print("create console")
-        self.console_frame = ttk.Frame(
-            self.right_frame, padding=20, width=400, height=500
-        )
+        self.console_frame = ttk.Frame(self.right_frame, padding=20, width=400, height=500)
         self.console_frame.pack()
         self.console_frame.grid_propagate(False)
 
-        console_label = ttk.Label(
-            self.console_frame, text="Console:", font=("Arial", 12), anchor="center"
-        )
+        console_label = ttk.Label(self.console_frame, text="Console:", font=("Arial", 12), anchor="center")
         console_label.grid(column=0, row=0, columnspan=3, sticky="w")
 
-        self.console_text = tk.Text(
-            self.console_frame, wrap=tk.WORD, state="disabled", font=("Arial", 10)
-        )
-        self.console_text.grid(
-            column=0, row=1, columnspan=3, sticky="nsew"
-        )  # Fill available space
+        self.console_text = tk.Text(self.console_frame, wrap=tk.WORD, state="disabled", font=("Arial", 10))
+        self.console_text.grid(column=0, row=1, columnspan=3, sticky="nsew")  # Fill available space
 
         # Create a scrollbar and associate it with console_text
-        scrollbar = ttk.Scrollbar(
-            self.console_frame, orient="vertical", command=self.console_text.yview
-        )
+        scrollbar = ttk.Scrollbar(self.console_frame, orient="vertical", command=self.console_text.yview)
         scrollbar.grid(column=3, row=1, sticky="ns")
 
         # Set the yscrollcommand option of console_text to the set method of the scrollbar
@@ -577,16 +454,12 @@ class CubeControlApp:
 
         # Create a toggle button and bind it to the toggle_auto_scroll function
         self.auto_scroll_enabled = tk.BooleanVar(value=True)
-        toggle_button = ttk.Checkbutton(
-            self.console_frame, text="Auto Scroll", variable=self.auto_scroll_enabled
-        )
+        toggle_button = ttk.Checkbutton(self.console_frame, text="Auto Scroll", variable=self.auto_scroll_enabled)
         toggle_button.grid(column=1, row=4, sticky="w", pady=(10, 0))
 
         # Create a toggle button and bind it to the show_all function
         self.show_all_enabled = tk.BooleanVar(value=False)
-        toggle_button = ttk.Checkbutton(
-            self.console_frame, text="Show All", variable=self.show_all_enabled
-        )
+        toggle_button = ttk.Checkbutton(self.console_frame, text="Show All", variable=self.show_all_enabled)
         toggle_button.grid(column=2, row=4, sticky="w", pady=(10, 0))
 
         # Configure column and row weights to ensure proper resizing behavior
@@ -600,11 +473,7 @@ class CubeControlApp:
             new_text += "\n"
 
         # filter esp-inernal messages
-        if (
-            not self.show_all_enabled.get()
-            and "\r\n" in new_text
-            and "parse" not in new_text
-        ):
+        if not self.show_all_enabled.get() and "\r\n" in new_text and "parse" not in new_text:
             return
 
         new_text = new_text.replace("\r", "")
@@ -625,7 +494,7 @@ class CubeControlApp:
         self.console_frame.destroy()
 
     def send_msg(self, input_data):
-        if len(input_data) <= 0:
+        if len(input_data) <= 0 or self.device is None:
             return
         if input_data[-1] != "\n":
             input_data += "\n"
@@ -650,7 +519,6 @@ class CubeControlApp:
             self.console_text.config(state="disabled")
 
     def parse_msg(self, msg):
-
         match_adc_voltage = self.adc_pattern.search(msg)
         if match_adc_voltage:
             voltage = float(match_adc_voltage.group(1))
