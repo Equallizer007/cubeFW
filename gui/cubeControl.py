@@ -1,13 +1,166 @@
 import tkinter as tk
 from tkinter import ttk, messagebox, StringVar
-import sv_ttk  # pip install sv-ttk
+import sv_ttk
 import serial.tools.list_ports
 import serial
 import threading
 import re
 import os
 
+# current file path to allow the app to be called from outside its own workspace
 current_path = os.path.dirname(os.path.realpath(__file__))
+
+
+class ConfigWindow:
+    def __init__(self, parent):
+        # refernce to the window and parent
+        self.window = None
+        self.parent = parent
+
+        # default config variables
+        ontime_var = 4000
+        offtime_var = 12000
+        lower_thr_var = 3.5
+        upper_thr_var = 30.0
+        auto_sens_var = 10
+
+        self.config = {
+            "ontime": [ontime_var, StringVar(value=str(ontime_var))],
+            "offtime": [offtime_var, StringVar(value=str(offtime_var))],
+            "lower_thr": [lower_thr_var, StringVar(value=str(lower_thr_var))],
+            "upper_thr": [upper_thr_var, StringVar(value=str(upper_thr_var))],
+            "auto_sens": [auto_sens_var, StringVar(value=str(auto_sens_var))],
+        }
+
+    def open(self):
+        if self.window and self.window.winfo_exists():
+            self.window.destroy()  # Close the existing config window
+            return
+
+        self.window = tk.Toplevel(self.parent)
+        self.window.title("Config")
+        self.window.resizable(False, False)
+
+        # Make the window spawn in front of the main window
+        self.window.transient(self.parent)
+
+        # Add inner padding using a ttk.Frame
+        inner_frame = ttk.Frame(self.window, padding=(20, 20, 20, 20))
+        inner_frame.pack(fill="both", expand=True)
+
+        # Position the window relative to the main window
+        self.window.geometry(
+            "+%d+%d" % (self.parent.winfo_x() + 400, self.parent.winfo_y() + 200)
+        )
+        # Generator Config LabelFrame
+        generator_config_label_frame = ttk.LabelFrame(
+            inner_frame, text="Generator Settings", padding=10
+        )
+        generator_config_label_frame.grid(
+            column=0, row=0, columnspan=3, sticky="nesw", padx=0, pady=5
+        )
+
+        # on Time
+        self.ontime_label = ttk.Label(generator_config_label_frame, text="OnTime (ns):")
+        self.ontime_label.grid(column=0, row=0)
+        self.ontime_entry = ttk.Entry(
+            generator_config_label_frame,
+            width=9,
+            validate="focusout",
+            validatecommand=(self.window.register(lambda s: self.validate_entry(s, "ontime", int)),"%P"),
+            textvariable=self.config["ontime"][1],
+        )
+        self.ontime_entry.grid(column=1, row=0, sticky="nesw", padx=15)
+
+        # off Time
+        self.offtime_label = ttk.Label(
+            generator_config_label_frame, text="OffTime (ns):"
+        )
+        self.offtime_label.grid(column=0, row=1)
+        self.offtime_entry = ttk.Entry(
+            generator_config_label_frame,
+            width=9,
+            validate="focusout",
+            validatecommand=(self.window.register(lambda s: self.validate_entry(s, "offtime", int)),"%P"),
+            textvariable=self.config["offtime"][1],
+        )
+        self.offtime_entry.grid(column=1, row=1, sticky="nesw", padx=15)
+
+        # ADC Config LabelFrame
+        generator_config_label_frame = ttk.LabelFrame(
+            inner_frame, text="ADC Settings", padding=10
+        )
+        generator_config_label_frame.grid(
+            column=0, row=1, columnspan=3, sticky="nesw", padx=0, pady=5
+        )
+
+        # lower threshold
+        self.lower_thr_label = ttk.Label(
+            generator_config_label_frame, text="Lower Threshold (V):"
+        )
+        self.lower_thr_label.grid(column=0, row=0)
+        self.lower_thr_entry = ttk.Entry(
+            generator_config_label_frame,
+            width=9,
+            validate="focusout",
+            validatecommand=(self.window.register(lambda s: self.validate_entry(s, "lower_thr", float)),"%P"),
+            textvariable=self.config["lower_thr"][1],
+        )
+        self.lower_thr_entry.grid(column=1, row=0, sticky="nesw", padx=15)
+
+        # higher treshold
+        self.upper_thr_label = ttk.Label(
+            generator_config_label_frame, text="Upper Threshold (V):"
+        )
+        self.upper_thr_label.grid(column=0, row=1)
+        self.upper_thr_entry = ttk.Entry(
+            generator_config_label_frame,
+            width=9,
+            validate="focusout",
+            validatecommand=(self.window.register(lambda s: self.validate_entry(s, "upper_thr", float)),"%P"),
+            textvariable=self.config["upper_thr"][1],
+        )
+        self.upper_thr_entry.grid(column=1, row=1, sticky="nesw", padx=15)
+
+        # auto mode Config LabelFrame
+        automode_config_label_frame = ttk.LabelFrame(
+            inner_frame, text="Automode Settings", padding=10
+        )
+        automode_config_label_frame.grid(
+            column=0, row=2, columnspan=3, sticky="nesw", padx=0, pady=5
+        )
+
+        # auto detection parameter
+        self.automode_label = ttk.Label(
+            automode_config_label_frame, text="Sensitivity:"
+        )
+        self.automode_label.grid(column=0, row=0)
+        self.automode_entry = ttk.Entry(
+            automode_config_label_frame,
+            width=9,
+            validate="focusout",
+            validatecommand=(self.window.register(lambda s: self.validate_entry(s, "auto_sens", int)),"%P"),
+            textvariable=self.config["auto_sens"][1],
+        )
+        self.automode_entry.grid(column=1, row=0, sticky="nesw", padx=15)
+
+    def validate_entry(self, input_str, strvar, type):
+        input_value = 0
+        try:
+            if type == int:
+                input_value = int(input_str)
+            elif type == float:
+                input_value = float(input_str)
+            else:
+                input_value = -1
+            if 0 < input_value <= 100000:
+                self.config[strvar][0] = input_value
+                return True
+        except ValueError:
+            pass
+        self.config[strvar][1].set(str(self.config[strvar][0]))
+        return False
+
 
 class CubeControlApp:
     def __init__(self) -> None:
@@ -23,21 +176,7 @@ class CubeControlApp:
 
         self.adc_pattern = re.compile(r"<ADC>.*calc:(\d+\.\d+)V")
         self.pos_pattern = re.compile(r"POS> homed:(\d) steps:(\d+) pos:(\d+\.\d{4})")
-        self.config_window = None
-
-        # default config variables
-        self.ontime_var = 4000
-        self.offtime_var = 12000
-        self.lower_thr_var = 3.5
-        self.upper_thr_var = 30.0
-        self.auto_sensitivity_var = 10
-
-        # stringvars
-        self.ontime_strvar = StringVar(value=str(self.ontime_var))
-        self.offtime_strvar = StringVar(value=str(self.offtime_var))
-        self.lower_thr_strvar = StringVar(value=str(self.lower_thr_var))
-        self.upper_thr_strvar = StringVar(value=str(self.upper_thr_var))
-        self.auto_sensitivity_strvar = StringVar(value=str(self.auto_sensitivity_var))
+        self.config_window = ConfigWindow(self.app)
 
         self.setup_ui()
 
@@ -265,182 +404,10 @@ class CubeControlApp:
         )
         self.touch_button.grid(column=2, row=3, pady=0, padx=(0, 0), sticky="nesw")
 
-    def open_config_window(self):
-        if self.config_window and self.config_window.winfo_exists():
-            self.config_window.destroy()  # Close the existing config window
-            return
-
-        def validate_ontime(input_str):
-            if input_str:
-                try:
-                    input_value = int(input_str)
-                    if 0 < input_value <= 100000:
-                        self.ontime_var = input_value
-                        return True
-                except ValueError:
-                    pass
-            self.ontime_strvar.set(str(self.ontime_var))
-            return False
-
-        def validate_offtime(input_str):
-            if input_str:
-                try:
-                    input_value = int(input_str)
-                    if 0 < input_value <= 100000:
-                        self.offtime_var = input_value
-                        return True
-                except ValueError:
-                    pass
-            self.offtime_strvar.set(str(self.offtime_var))
-            return False
-
-        def validate_upper_thr(input_str):
-            if input_str:
-                try:
-                    input_value = float(input_str)
-                    if 0 < input_value <= 500:
-                        self.upper_thr_var = input_value
-                        return True
-                except ValueError:
-                    pass
-            self.upper_thr_strvar.set(str(self.upper_thr_var))
-            return False
-
-        def validate_lower_thr(input_str):
-            if input_str:
-                try:
-                    input_value = float(input_str)
-                    if 0 < input_value <= 500:
-                        self.lower_thr_var = input_value
-                        return True
-                except ValueError:
-                    pass
-            self.lower_thr_strvar.set(str(self.lower_thr_var))
-            return False
-
-        def validate_auto_sensitivity(input_str):
-            if input_str:
-                try:
-                    input_value = int(input_str)
-                    if 0 < input_value <= 100000:
-                        self.auto_sensitivity_var = input_value
-                        return True
-                except ValueError:
-                    pass
-            self.auto_sensitivity_strvar.set(str(self.auto_sensitivity_var))
-            return False
-
-        self.config_window = tk.Toplevel(self.app)
-        self.config_window.title("Config")
-        self.config_window.resizable(False, False)
-        # Make the window spawn in front of the main window
-        self.config_window.transient(self.app)
-        # Add inner padding using a ttk.Frame
-        inner_frame = ttk.Frame(self.config_window, padding=(20, 20, 20, 20))
-        inner_frame.pack(fill="both", expand=True)
-        # Position the window relative to the main window
-        self.config_window.geometry(
-            "+%d+%d" % (self.app.winfo_x() + 400, self.app.winfo_y() + 200)
-        )
-        # Generator Config LabelFrame
-        generator_config_label_frame = ttk.LabelFrame(
-            inner_frame, text="Generator Settings", padding=10
-        )
-        generator_config_label_frame.grid(
-            column=0, row=0, columnspan=3, sticky="nesw", padx=0, pady=5
-        )
-
-        # on Time
-        self.ontime_label = ttk.Label(generator_config_label_frame, text="OnTime (ns):")
-        self.ontime_label.grid(column=0, row=0)
-        self.ontime_entry = ttk.Entry(
-            generator_config_label_frame,
-            width=9,
-            validate="focusout",
-            validatecommand=(self.config_window.register(validate_ontime), "%P"),
-            textvariable=self.ontime_strvar,
-        )
-        self.ontime_entry.grid(column=1, row=0, sticky="nesw", padx=15)
-
-        # off Time
-        self.offtime_label = ttk.Label(
-            generator_config_label_frame, text="OffTime (ns):"
-        )
-        self.offtime_label.grid(column=0, row=1)
-        self.offtime_entry = ttk.Entry(
-            generator_config_label_frame,
-            width=9,
-            validate="focusout",
-            validatecommand=(self.config_window.register(validate_offtime), "%P"),
-            textvariable=self.offtime_strvar,
-        )
-        self.offtime_entry.grid(column=1, row=1, sticky="nesw", padx=15)
-
-        # ADC Config LabelFrame
-        generator_config_label_frame = ttk.LabelFrame(
-            inner_frame, text="ADC Settings", padding=10
-        )
-        generator_config_label_frame.grid(
-            column=0, row=1, columnspan=3, sticky="nesw", padx=0, pady=5
-        )
-
-        # lower threshold
-        self.lower_thr_label = ttk.Label(
-            generator_config_label_frame, text="Lower Threshold (V):"
-        )
-        self.lower_thr_label.grid(column=0, row=0)
-        self.lower_thr_entry = ttk.Entry(
-            generator_config_label_frame,
-            width=9,
-            validate="focusout",
-            validatecommand=(self.config_window.register(validate_lower_thr), "%P"),
-            textvariable=self.lower_thr_strvar,
-        )
-        self.lower_thr_entry.grid(column=1, row=0, sticky="nesw", padx=15)
-
-        # higher treshold
-        self.upper_thr_label = ttk.Label(
-            generator_config_label_frame, text="Upper Threshold (V):"
-        )
-        self.upper_thr_label.grid(column=0, row=1)
-        self.upper_thr_entry = ttk.Entry(
-            generator_config_label_frame,
-            width=9,
-            validate="focusout",
-            validatecommand=(self.config_window.register(validate_upper_thr), "%P"),
-            textvariable=self.upper_thr_strvar,
-        )
-        self.upper_thr_entry.grid(column=1, row=1, sticky="nesw", padx=15)
-
-        # auto mode Config LabelFrame
-        automode_config_label_frame = ttk.LabelFrame(
-            inner_frame, text="Automode Settings", padding=10
-        )
-        automode_config_label_frame.grid(
-            column=0, row=2, columnspan=3, sticky="nesw", padx=0, pady=5
-        )
-
-        # auto detection parameter
-        self.automode_label = ttk.Label(
-            automode_config_label_frame, text="Sensitivity:"
-        )
-        self.automode_label.grid(column=0, row=0)
-        self.automode_entry = ttk.Entry(
-            automode_config_label_frame,
-            width=9,
-            validate="focusout",
-            validatecommand=(
-                self.config_window.register(validate_auto_sensitivity),
-                "%P",
-            ),
-            textvariable=self.auto_sensitivity_strvar,
-        )
-        self.automode_entry.grid(column=1, row=0, sticky="nesw", padx=15)
-
     def fill_generator_frame(self, parent):
         # Config Button
         self.config_button = ttk.Button(
-            parent, text="Config", width=9, command=self.open_config_window
+            parent, text="Config", width=9, command=self.config_window.open
         )
         self.config_button.grid(
             column=0, row=0, pady=(0, 10), padx=(0, 0), sticky="nesw"
