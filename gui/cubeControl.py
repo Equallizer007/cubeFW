@@ -1,11 +1,13 @@
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, StringVar
 import sv_ttk  # pip install sv-ttk
 import serial.tools.list_ports
 import serial
 import threading
 import re
+import os
 
+current_path = os.path.dirname(os.path.realpath(__file__))
 
 class CubeControlApp:
     def __init__(self) -> None:
@@ -14,13 +16,28 @@ class CubeControlApp:
         self.update_serial_handle = None
 
         self.app = tk.Tk()
-        self.app.title("CUBEcontrol")
+        self.app.iconbitmap(current_path + "/img/icon.ico")
+        self.app.title("CUBEcontrol --- version 1.0")
         self.app.geometry("800x500")
         self.app.resizable(False, False)
 
         self.adc_pattern = re.compile(r"<ADC>.*calc:(\d+\.\d+)V")
         self.pos_pattern = re.compile(r"POS> homed:(\d) steps:(\d+) pos:(\d+\.\d{4})")
+        self.config_window = None
 
+        # default config variables
+        self.ontime_var = 4000
+        self.offtime_var = 12000
+        self.lower_thr_var = 3.5
+        self.upper_thr_var = 30.0
+        self.auto_sensitivity_var = 10
+
+        # stringvars
+        self.ontime_strvar = StringVar(value=str(self.ontime_var))
+        self.offtime_strvar = StringVar(value=str(self.offtime_var))
+        self.lower_thr_strvar = StringVar(value=str(self.lower_thr_var))
+        self.upper_thr_strvar = StringVar(value=str(self.upper_thr_var))
+        self.auto_sensitivity_strvar = StringVar(value=str(self.auto_sensitivity_var))
 
         self.setup_ui()
 
@@ -56,19 +73,26 @@ class CubeControlApp:
         self.left_frame.rowconfigure(0, weight=1)
 
         # Load and display the image in the right frame
-        image_file = "image.png"
+        image_file = current_path + "/img/background.png"
         self.image = tk.PhotoImage(file=image_file)
-        self.image_label = ttk.Label(
-            self.right_frame,
-            # background="green",
-            image=self.image,
-            borderwidth=0,
-            padding=0,
+
+        # Create a Canvas widget to hold the image and the text
+        self.image_canvas = tk.Canvas(
+            self.right_frame, width=400, height=500, bd=0, highlightthickness=0
         )
-        self.image_label.grid()
-        self.image_label.update()
-        print(self.image_label.winfo_height())
-        print(self.image_label.winfo_width())
+        self.image_canvas.grid()
+
+        # Display the image on the Canvas
+        self.image_canvas.create_image(0, 0, anchor=tk.NW, image=self.image)
+
+        # Add the semi-transparent text in the lower right corner over the image
+        version_text = "Marcus Voß 2023"
+        self.image_canvas.create_text(330, 480, text=version_text)
+
+        # Logo image
+        self.logo_image = tk.PhotoImage(file=current_path + "/img/logo.png")
+        self.logo_image_label = ttk.Label(self.left_frame, image=self.logo_image)
+        self.logo_image_label.grid(column=0, row=0, columnspan=3)
 
         # Logo text
         self.logo_text_label = ttk.Label(
@@ -136,7 +160,7 @@ class CubeControlApp:
             self.update_console_text(
                 f"Connected to {self.device.port} @  baudrate {self.device.baudrate}"
             )
-            #send intial messages
+            # send intial messages
             self.send_msg("M0 ;restart device")
             self.send_msg("M1 500 ;set report interval to 500ms")
             self.serial_thread.start()
@@ -152,6 +176,303 @@ class CubeControlApp:
         self.select_device_label.grid()
         self.remove_console()
         self.remove_control_widgets()
+
+    def fill_movement_frame(self, parent):
+        # Current position label
+        self.current_position_label = ttk.Label(parent, text="?")
+        self.current_position_label.grid(column=0, row=0, pady=0, padx=(10, 0))
+
+        # Current steps label
+        self.current_steps_label = ttk.Label(parent, text="Steps: ?")
+        self.current_steps_label.grid(column=1, row=0, pady=0, padx=(0, 0))
+
+        # Homed label
+        self.homed_label = ttk.Label(parent, text="Not Homed")
+        self.homed_label.grid(column=2, row=0, pady=0, padx=(0, 0))
+
+        # Up arrow button
+        self.up_arrow_button = ttk.Button(
+            parent,
+            text="↑ Up",
+            width=9,
+            command=lambda: self.send_msg(
+                f"G1 Z-{self.movement_steps[self.movement_steps_dropdown.current()]} ;move up {self.movement_steps_dropdown.get()}"
+            ),
+        )
+        self.up_arrow_button.grid(column=0, row=1, pady=10, padx=(0, 0), sticky="nesw")
+
+        # Down arrow button
+        self.down_arrow_button = ttk.Button(
+            parent,
+            text="↓ Down",
+            width=9,
+            command=lambda: self.send_msg(
+                f"G1 Z{self.movement_steps[self.movement_steps_dropdown.current()]} ;move down {self.movement_steps_dropdown.get()}"
+            ),
+        )
+        self.down_arrow_button.grid(
+            column=1, row=1, pady=10, padx=(15, 15), sticky="nesw"
+        )
+
+        # Movement Step dropdown
+        self.movement_steps = [0.5, 1, 2.5, 5, 10, 100, 1000, 5000]
+        movement_steps_labels = [
+            "0.5µm",
+            "1µm",
+            "2.5µm",
+            "5µm",
+            "10µm",
+            "100µm",
+            "1mm",
+            "5mm",
+        ]
+        self.movement_steps_dropdown = ttk.Combobox(
+            parent,
+            values=movement_steps_labels,
+            font=("Arial", 11),
+            state="readonly",
+            width=6,
+        )
+        self.movement_steps_dropdown.current(0)
+        self.movement_steps_dropdown.grid(
+            column=2, row=1, pady=10, padx=(0, 0), sticky="w"
+        )
+
+        # Home button
+        self.home_button = ttk.Button(
+            parent,
+            text="Home",
+            width=9,
+            command=lambda: self.send_msg("G28 ;home"),
+        )
+        self.home_button.grid(column=0, row=3, pady=0, padx=(0, 0), sticky="nesw")
+
+        # Restart button
+        self.restart_button = ttk.Button(
+            parent,
+            text="Restart",
+            width=9,
+            command=lambda: self.send_msg("M0 ;restart"),
+        )
+        self.restart_button.grid(column=1, row=3, pady=0, padx=(15, 15), sticky="nesw")
+
+        # Touch button
+        self.touch_button = ttk.Button(
+            parent,
+            text="Touch",
+            width=9,
+            command=lambda: self.send_msg("M102 ;touchmode"),
+        )
+        self.touch_button.grid(column=2, row=3, pady=0, padx=(0, 0), sticky="nesw")
+
+    def open_config_window(self):
+        if self.config_window and self.config_window.winfo_exists():
+            self.config_window.destroy()  # Close the existing config window
+            return
+
+        def validate_ontime(input_str):
+            if input_str:
+                try:
+                    input_value = int(input_str)
+                    if 0 < input_value <= 100000:
+                        self.ontime_var = input_value
+                        return True
+                except ValueError:
+                    pass
+            self.ontime_strvar.set(str(self.ontime_var))
+            return False
+
+        def validate_offtime(input_str):
+            if input_str:
+                try:
+                    input_value = int(input_str)
+                    if 0 < input_value <= 100000:
+                        self.offtime_var = input_value
+                        return True
+                except ValueError:
+                    pass
+            self.offtime_strvar.set(str(self.offtime_var))
+            return False
+
+        def validate_upper_thr(input_str):
+            if input_str:
+                try:
+                    input_value = float(input_str)
+                    if 0 < input_value <= 500:
+                        self.upper_thr_var = input_value
+                        return True
+                except ValueError:
+                    pass
+            self.upper_thr_strvar.set(str(self.upper_thr_var))
+            return False
+
+        def validate_lower_thr(input_str):
+            if input_str:
+                try:
+                    input_value = float(input_str)
+                    if 0 < input_value <= 500:
+                        self.lower_thr_var = input_value
+                        return True
+                except ValueError:
+                    pass
+            self.lower_thr_strvar.set(str(self.lower_thr_var))
+            return False
+
+        def validate_auto_sensitivity(input_str):
+            if input_str:
+                try:
+                    input_value = int(input_str)
+                    if 0 < input_value <= 100000:
+                        self.auto_sensitivity_var = input_value
+                        return True
+                except ValueError:
+                    pass
+            self.auto_sensitivity_strvar.set(str(self.auto_sensitivity_var))
+            return False
+
+        self.config_window = tk.Toplevel(self.app)
+        self.config_window.title("Config")
+        self.config_window.resizable(False, False)
+        # Make the window spawn in front of the main window
+        self.config_window.transient(self.app)
+        # Add inner padding using a ttk.Frame
+        inner_frame = ttk.Frame(self.config_window, padding=(20, 20, 20, 20))
+        inner_frame.pack(fill="both", expand=True)
+        # Position the window relative to the main window
+        self.config_window.geometry(
+            "+%d+%d" % (self.app.winfo_x() + 400, self.app.winfo_y() + 200)
+        )
+        # Generator Config LabelFrame
+        generator_config_label_frame = ttk.LabelFrame(
+            inner_frame, text="Generator Settings", padding=10
+        )
+        generator_config_label_frame.grid(
+            column=0, row=0, columnspan=3, sticky="nesw", padx=0, pady=5
+        )
+
+        # on Time
+        self.ontime_label = ttk.Label(generator_config_label_frame, text="OnTime (ns):")
+        self.ontime_label.grid(column=0, row=0)
+        self.ontime_entry = ttk.Entry(
+            generator_config_label_frame,
+            width=9,
+            validate="focusout",
+            validatecommand=(self.config_window.register(validate_ontime), "%P"),
+            textvariable=self.ontime_strvar,
+        )
+        self.ontime_entry.grid(column=1, row=0, sticky="nesw", padx=15)
+
+        # off Time
+        self.offtime_label = ttk.Label(
+            generator_config_label_frame, text="OffTime (ns):"
+        )
+        self.offtime_label.grid(column=0, row=1)
+        self.offtime_entry = ttk.Entry(
+            generator_config_label_frame,
+            width=9,
+            validate="focusout",
+            validatecommand=(self.config_window.register(validate_offtime), "%P"),
+            textvariable=self.offtime_strvar,
+        )
+        self.offtime_entry.grid(column=1, row=1, sticky="nesw", padx=15)
+
+        # ADC Config LabelFrame
+        generator_config_label_frame = ttk.LabelFrame(
+            inner_frame, text="ADC Settings", padding=10
+        )
+        generator_config_label_frame.grid(
+            column=0, row=1, columnspan=3, sticky="nesw", padx=0, pady=5
+        )
+
+        # lower threshold
+        self.lower_thr_label = ttk.Label(
+            generator_config_label_frame, text="Lower Threshold (V):"
+        )
+        self.lower_thr_label.grid(column=0, row=0)
+        self.lower_thr_entry = ttk.Entry(
+            generator_config_label_frame,
+            width=9,
+            validate="focusout",
+            validatecommand=(self.config_window.register(validate_lower_thr), "%P"),
+            textvariable=self.lower_thr_strvar,
+        )
+        self.lower_thr_entry.grid(column=1, row=0, sticky="nesw", padx=15)
+
+        # higher treshold
+        self.upper_thr_label = ttk.Label(
+            generator_config_label_frame, text="Upper Threshold (V):"
+        )
+        self.upper_thr_label.grid(column=0, row=1)
+        self.upper_thr_entry = ttk.Entry(
+            generator_config_label_frame,
+            width=9,
+            validate="focusout",
+            validatecommand=(self.config_window.register(validate_upper_thr), "%P"),
+            textvariable=self.upper_thr_strvar,
+        )
+        self.upper_thr_entry.grid(column=1, row=1, sticky="nesw", padx=15)
+
+        # auto mode Config LabelFrame
+        automode_config_label_frame = ttk.LabelFrame(
+            inner_frame, text="Automode Settings", padding=10
+        )
+        automode_config_label_frame.grid(
+            column=0, row=2, columnspan=3, sticky="nesw", padx=0, pady=5
+        )
+
+        # auto detection parameter
+        self.automode_label = ttk.Label(
+            automode_config_label_frame, text="Sensitivity:"
+        )
+        self.automode_label.grid(column=0, row=0)
+        self.automode_entry = ttk.Entry(
+            automode_config_label_frame,
+            width=9,
+            validate="focusout",
+            validatecommand=(
+                self.config_window.register(validate_auto_sensitivity),
+                "%P",
+            ),
+            textvariable=self.auto_sensitivity_strvar,
+        )
+        self.automode_entry.grid(column=1, row=0, sticky="nesw", padx=15)
+
+    def fill_generator_frame(self, parent):
+        # Config Button
+        self.config_button = ttk.Button(
+            parent, text="Config", width=9, command=self.open_config_window
+        )
+        self.config_button.grid(
+            column=0, row=0, pady=(0, 10), padx=(0, 0), sticky="nesw"
+        )
+
+        # Enable Button
+        self.generator_enable_button = ttk.Button(parent, text="Enable", width=9)
+        self.generator_enable_button.grid(
+            column=0, row=1, pady=0, padx=(0, 0), sticky="nesw"
+        )
+
+        # Disable Button
+        self.generator_disable_button = ttk.Button(
+            parent,
+            text="Disable",
+            width=9,
+            command=lambda: self.send_msg("M101 ;disable generator"),
+        )
+        self.generator_disable_button.grid(
+            column=1, row=1, pady=0, padx=(15, 15), sticky="nesw"
+        )
+
+        # Auto on Button
+        self.generator_auto_button = ttk.Button(
+            parent,
+            text="Auto",
+            width=9,
+            command=lambda: self.send_msg("M103 ;auto mode"),
+        )
+        self.generator_auto_button.grid(
+            column=2, row=1, pady=0, padx=(0, 0), sticky="nesw"
+        )
 
     def update_serial_devices(self) -> None:
         # Get the list of serial devices and update the dropdown
@@ -184,95 +505,36 @@ class CubeControlApp:
         self.logo_text_label.grid(column=0, row=0, sticky="n")
         self.select_device_label.grid_remove()
 
-        self.control_frame = ttk.Frame(
-            self.left_frame, padding=10, width=400, height=500
+        self.control_frame = ttk.Frame(self.left_frame, padding=10)
+        self.control_frame.grid(column=0, row=1, columnspan=2, sticky="w")
+
+        # Generator LabelFrame
+        self.generator_label_frame = ttk.LabelFrame(
+            self.control_frame, text="Generator", padding=10
         )
-        self.control_frame.grid(column=0, row=1, columnspan=3, sticky="nesw")
+        self.generator_label_frame.grid(
+            column=0, row=0, columnspan=3, sticky="nesw", padx=0, pady=5
+        )
 
         # ADC LabelFrame
-        self.adc_label_frame = ttk.LabelFrame(
-            self.control_frame, text="ADC", padding=0
+        self.adc_label_frame = ttk.LabelFrame(self.control_frame, text="ADC", padding=0)
+        self.adc_label_frame.grid(
+            column=0, row=1, columnspan=3, sticky="nesw", padx=0, pady=5
         )
-        self.adc_label_frame.grid(column=0, row=0, columnspan=3, sticky="nesw", padx=0, pady=5)
 
         # Current adc_voltage label
-        self.adc_voltage_label = ttk.Label(
-            self.adc_label_frame,
-            text="ADC voltage: ?"
-        )
+        self.adc_voltage_label = ttk.Label(self.adc_label_frame, text="ADC voltage: ?")
         self.adc_voltage_label.grid(column=0, row=0, pady=5, padx=(10, 0))
 
         # Movement LabelFrame
         self.movement_label_frame = ttk.LabelFrame(
-            self.control_frame, text="Manual Movement", padding=0
+            self.control_frame, text="Movement", padding=10
         )
-        self.movement_label_frame.grid(column=0, row=1, columnspan=3, sticky="nesw", padx=0, pady=5)
-
-        # Home button
-        self.home_button = ttk.Button(
-            self.movement_label_frame,
-            text="Home",
-            command=lambda: self.send_msg("G28 ;home")
+        self.movement_label_frame.grid(
+            column=0, row=2, columnspan=3, sticky="nesw", padx=0, pady=5
         )
-        self.home_button.grid(column=0, row=3, pady=5, padx=(10, 0), sticky="w" )
-
-        # Current position label
-        self.current_position_label = ttk.Label(
-            self.movement_label_frame,
-            text="?"
-        )
-        self.current_position_label.grid(column=0, row=0, pady=5, padx=(10, 0))
-
-        # Current steps label
-        self.current_steps_label = ttk.Label(
-            self.movement_label_frame,
-            text="Steps: ?"
-        )
-        self.current_steps_label.grid(column=1, row=0, pady=5, padx=(0, 0))
-
-        # Homed label
-        self.homed_label = ttk.Label(
-            self.movement_label_frame,
-            text="Not Homed"
-        )
-        self.homed_label.grid(column=2, row=0, pady=5, padx=(0, 0))
-
-        # Up arrow button
-        self.up_arrow_button = ttk.Button(
-            self.movement_label_frame,
-            text="↑ Up",
-            # command = lambda: self.send_msg(f"G1 Z{self.movement_steps_dropdown["text"])} ; move up")
-        )
-        self.up_arrow_button.grid(column=0, row=1, pady=5, padx=(10, 0), sticky="w" )
-
-        # Down arrow button
-        self.down_arrow_button = ttk.Button(
-            self.movement_label_frame,
-            text="↓ Down",
-        )
-        self.down_arrow_button.grid(column=1, row=1, pady=5, padx=(0, 0), sticky="w" )
-
-        # Movement Step dropdown
-        self.movement_steps = [0.5, 1, 2.5, 5, 10, 100, 1000, 5000]
-        movement_steps_labels = ["0.5µm", "1µm", "2.5µm", "5µm", "10µm", "100µm", "1mm", "5mm"]
-        self.movement_steps_dropdown = ttk.Combobox(
-            self.movement_label_frame,
-            values=movement_steps_labels,
-            font=("Arial", 11),
-            state="readonly",
-            width=5,
-        )
-        self.movement_steps_dropdown.current(0)
-        self.movement_steps_dropdown.grid(column=2, row=1, padx = 0)
-
-        # Restart button
-        self.restart_button = ttk.Button(
-            self.movement_label_frame,
-            text="Restart",
-            command = lambda: self.send_msg("M0 ;restart")
-        )
-        self.restart_button.grid(column=1, row=3, pady=5, padx=(0, 0), sticky="w" )
-
+        self.fill_generator_frame(self.generator_label_frame)
+        self.fill_movement_frame(self.movement_label_frame)
 
     def remove_control_widgets(self) -> None:
         self.logo_text_label.grid(column=0, row=0, sticky="")
@@ -292,7 +554,9 @@ class CubeControlApp:
         )
         console_label.grid(column=0, row=0, columnspan=3, sticky="w")
 
-        self.console_text = tk.Text(self.console_frame, wrap=tk.WORD, state="disabled", font=("Arial", 10))
+        self.console_text = tk.Text(
+            self.console_frame, wrap=tk.WORD, state="disabled", font=("Arial", 10)
+        )
         self.console_text.grid(
             column=0, row=1, columnspan=3, sticky="nsew"
         )  # Fill available space
@@ -367,13 +631,17 @@ class CubeControlApp:
     def update_console_text(self, new_text: str) -> None:
         if new_text[-1] != "\n":
             new_text += "\n"
-        
-        #filter esp-inernal messages
-        if not self.show_all_enabled.get() and '\r\n' in new_text and "parse" not in new_text:
+
+        # filter esp-inernal messages
+        if (
+            not self.show_all_enabled.get()
+            and "\r\n" in new_text
+            and "parse" not in new_text
+        ):
             return
-        
-        new_text = new_text.replace('\r','')
-        print(">> ", new_text.encode())
+
+        new_text = new_text.replace("\r", "")
+        # print(">> ", new_text.encode())
         self.console_text.configure(state="normal")
         self.console_text.insert("end", new_text)
         self.console_text.configure(state="disabled")
@@ -389,10 +657,9 @@ class CubeControlApp:
     def remove_console(self) -> None:
         self.console_frame.destroy()
 
-
     def send_msg(self, input_data):
         if len(input_data) <= 0:
-                return
+            return
         if input_data[-1] != "\n":
             input_data += "\n"
         self.device.write(input_data.encode())
@@ -400,7 +667,6 @@ class CubeControlApp:
         self.update_console_text(f">>> {input_data}")
         self.console_text.config(state="disabled")
         self.console_input.delete(0, tk.END)
-
 
     def send_serial(self):
         if self.device is not None:
@@ -410,14 +676,14 @@ class CubeControlApp:
             if input_data == self.placeholder_text:
                 return
             self.send_msg(input_data)
-            
+
         else:
             self.console_text.config(state="normal")
             self.update_console_text("Serial port not connected.\n")
             self.console_text.config(state="disabled")
 
-    def parse_msg(self,msg):
-        
+    def parse_msg(self, msg):
+
         match_adc_voltage = self.adc_pattern.search(msg)
         if match_adc_voltage:
             voltage = float(match_adc_voltage.group(1))
@@ -429,9 +695,9 @@ class CubeControlApp:
             homed = bool(int(pos_match.group(1)))
             steps = int(pos_match.group(2))
             pos = float(pos_match.group(3))
-            self.current_steps_label.configure(text = f"Steps: {steps}")
-            self.current_position_label.configure(text = f"{pos:.4f}mm")
-            self.homed_label.configure(text = "Homed" if homed else "Not Homed")
+            self.current_steps_label.configure(text=f"Steps: {steps}")
+            self.current_position_label.configure(text=f"{pos:.4f}mm")
+            self.homed_label.configure(text="Homed" if homed else "Not Homed")
             return 1
         return 0
 
