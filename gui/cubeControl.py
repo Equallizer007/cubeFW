@@ -10,6 +10,121 @@ import os
 # current file path to allow the app to be called from outside its own workspace
 current_path = os.path.dirname(os.path.realpath(__file__))
 
+class Console:
+    def __init__(self, app, parent):
+        self.app = app
+        self.parent = parent
+
+    def create_console(self) -> None:
+        self.console_frame = ttk.Frame(self.parent, padding=20, width=400, height=500)
+        self.console_frame.pack()
+        self.console_frame.grid_propagate(False)
+
+        console_label = ttk.Label(self.console_frame, text="Console:", font=("Arial", 12), anchor="center")
+        console_label.grid(column=0, row=0, columnspan=3, sticky="w")
+
+        self.console_text = tk.Text(self.console_frame, wrap=tk.WORD, state="disabled", font=("Arial", 10))
+        self.console_text.grid(column=0, row=1, columnspan=3, sticky="nsew")
+
+        scrollbar = ttk.Scrollbar(self.console_frame, orient="vertical", command=self.console_text.yview)
+        scrollbar.grid(column=3, row=1, sticky="ns")
+        self.console_text.configure(yscrollcommand=scrollbar.set)
+
+        self.console_frame.grid_rowconfigure(2, weight=1)
+
+        self.placeholder_text = "Type your command here..."
+
+        self.console_input = ttk.Entry(self.console_frame, font=("Arial", 12))
+        self.console_input.bind("<Return>", lambda event: self.send_serial())
+        self._set_placeholder_text()
+        self._bind_entry_events(self.console_input)
+        self.console_input.grid(column=0, row=3, columnspan=2, sticky="ew")
+
+        send_button = ttk.Button(
+            self.console_frame,
+            text="Send",
+            style="Accent.TButton",
+            command=self.send_serial,  # Assuming you have a 'send_serial' function in your main class
+        )
+        send_button.grid(column=2, row=3, sticky="e", padx=(5, 0))
+
+        clear_button = ttk.Button(
+            self.console_frame,
+            text="Clear",
+            style="Accent.TButton",
+            command=self.clear_console_text,
+        )
+        clear_button.grid(column=0, row=4, sticky="w", padx=(0, 5))
+
+        self.auto_scroll_enabled = tk.BooleanVar(value=True)
+        toggle_button = ttk.Checkbutton(self.console_frame, text="Auto Scroll", variable=self.auto_scroll_enabled)
+        toggle_button.grid(column=1, row=4, sticky="w", pady=(10, 0))
+
+        self.show_all_enabled = tk.BooleanVar(value=False)
+        toggle_button = ttk.Checkbutton(self.console_frame, text="Show All", variable=self.show_all_enabled)
+        toggle_button.grid(column=2, row=4, sticky="w", pady=(10, 0))
+
+        self.console_frame.columnconfigure(0, weight=1)
+        self.console_frame.columnconfigure(1, weight=1)
+        self.console_frame.columnconfigure(2, weight=1)
+        self.console_frame.rowconfigure(1, weight=1)
+        
+
+    def update_console_text(self, new_text: str) -> None:
+        if new_text[-1] != "\n":
+            new_text += "\n"
+
+        # filter esp-inernal messages
+        if not self.show_all_enabled.get() and "\r\n" in new_text and "parse" not in new_text:
+            return
+
+        new_text = new_text.replace("\r", "")
+        # print(">> ", new_text.encode())
+        self.console_text.configure(state="normal")
+        self.console_text.insert("end", new_text)
+        self.console_text.configure(state="disabled")
+        # Add auto-scrolling functionality
+        if self.auto_scroll_enabled.get():
+            self.console_text.see("end")
+
+    def clear_console_text(self) -> None:
+        self.console_text.configure(state="normal")
+        self.console_text.delete("1.0", "end")
+        self.console_text.configure(state="disabled")
+
+    def remove_console(self) -> None:
+        self.console_frame.destroy()
+
+    def send_serial(self):
+        if self.app.device is not None:
+            input_data = self.console_input.get()
+            if len(input_data) <= 0:
+                return
+            if input_data == self.placeholder_text:
+                return
+            self.app.send_msg(input_data)
+
+        else:
+            self.console_text.config(state="normal")
+            self.update_console_text("Serial port not connected.\n")
+            self.console_text.config(state="disabled")
+
+    def _remove_placeholder_text(self):
+        if self.console_input.get() == self.placeholder_text:
+            self.console_input.delete(0, "end")
+            self.console_input.configure(foreground="black")
+
+    def _set_placeholder_text(self):
+        if len(self.console_input.get()) == 0:
+            self.console_input.delete(0, "end")
+            self.console_input.insert(0, self.placeholder_text)
+            self.console_input.configure(foreground="#a9a9a9")
+
+    def _bind_entry_events(self, entry_widget):
+        entry_widget.bind("<FocusIn>", lambda event: self._remove_placeholder_text())
+        entry_widget.bind("<FocusOut>", lambda event: self._set_placeholder_text())
+
+
 class ConfigWindow:
     def __init__(self, parent):
         # refernce to the window and parent
@@ -119,6 +234,7 @@ class CubeControlApp:
 
         # Create frames and configure grid
         self.right_frame, self.left_frame = self.create_frames(self.app)
+        self.console = Console(self, self.right_frame)
 
         # Load and display the image, text, and logo in the right frame
         self.display_image_text_logo()
@@ -212,9 +328,9 @@ class CubeControlApp:
             self.connect_button.configure(text="Disconnect", command=self.disconnect_device)
             self.device_dropdown.configure(state="disabled")
             self.create_control_widgets()
-            self.create_console()
+            self.console.create_console()
             self.serial_thread = threading.Thread(target=self.read_serial)
-            self.update_console_text(f"Connected to {self.device.port} @  baudrate {self.device.baudrate}")
+            self.console.update_console_text(f"Connected to {self.device.port} @  baudrate {self.device.baudrate}")
             # send intial messages
             self.send_msg("M0 ;restart device")
             self.send_msg("M1 500 ;set report interval to 500ms")
@@ -227,7 +343,7 @@ class CubeControlApp:
         self.connect_button.configure(text="Connect", command=self.connect_device, state="enabled")
         self.device_dropdown.configure(state="readonly")
         self.select_device_label.grid()
-        self.remove_console()
+        self.console.remove_console()
         self.remove_control_widgets()
 
     def fill_movement_frame(self, parent):
@@ -394,129 +510,13 @@ class CubeControlApp:
         self.logo_text_label.grid(column=0, row=0, sticky="")
         self.control_frame.destroy()
 
-    def create_console(self) -> None:
-        # Create a console frame within the right frame
-        print("create console")
-        self.console_frame = ttk.Frame(self.right_frame, padding=20, width=400, height=500)
-        self.console_frame.pack()
-        self.console_frame.grid_propagate(False)
-
-        console_label = ttk.Label(self.console_frame, text="Console:", font=("Arial", 12), anchor="center")
-        console_label.grid(column=0, row=0, columnspan=3, sticky="w")
-
-        self.console_text = tk.Text(self.console_frame, wrap=tk.WORD, state="disabled", font=("Arial", 10))
-        self.console_text.grid(column=0, row=1, columnspan=3, sticky="nsew")  # Fill available space
-
-        # Create a scrollbar and associate it with console_text
-        scrollbar = ttk.Scrollbar(self.console_frame, orient="vertical", command=self.console_text.yview)
-        scrollbar.grid(column=3, row=1, sticky="ns")
-
-        # Set the yscrollcommand option of console_text to the set method of the scrollbar
-        self.console_text.configure(yscrollcommand=scrollbar.set)
-        self.console_frame.grid_rowconfigure(2, weight=1)  # Add empty row with weight 1
-
-        self.placeholder_text = "Type your command here..."
-
-        def remove_placeholder_text():
-            if self.console_input.get() == self.placeholder_text:
-                self.console_input.delete(0, "end")
-                self.console_input.configure(foreground="black")
-
-        def set_placeholder_text():
-            if len(self.console_input.get()) == 0:
-                self.console_input.delete(0, "end")
-                self.console_input.insert(0, self.placeholder_text)
-                self.console_input.configure(foreground="#a9a9a9")
-
-        self.console_input = ttk.Entry(self.console_frame, font=("Arial", 12))
-        self.console_input.bind("<Return>", lambda event: self.send_serial())
-        set_placeholder_text()
-        self.console_input.bind("<FocusIn>", lambda event: remove_placeholder_text())
-        self.console_input.bind("<FocusOut>", lambda event: set_placeholder_text())
-        self.console_input.grid(column=0, row=3, columnspan=2, sticky="ew")
-
-        send_button = ttk.Button(
-            self.console_frame,
-            text="Send",
-            style="Accent.TButton",
-            command=self.send_serial,
-        )
-        send_button.grid(column=2, row=3, sticky="e", padx=(5, 0))
-
-        # Create the clear button and bind it to the clear_console_text function
-        clear_button = ttk.Button(
-            self.console_frame,
-            text="Clear",
-            style="Accent.TButton",
-            command=self.clear_console_text,
-        )
-        clear_button.grid(column=0, row=4, sticky="w", padx=(0, 5))
-
-        # Create a toggle button and bind it to the toggle_auto_scroll function
-        self.auto_scroll_enabled = tk.BooleanVar(value=True)
-        toggle_button = ttk.Checkbutton(self.console_frame, text="Auto Scroll", variable=self.auto_scroll_enabled)
-        toggle_button.grid(column=1, row=4, sticky="w", pady=(10, 0))
-
-        # Create a toggle button and bind it to the show_all function
-        self.show_all_enabled = tk.BooleanVar(value=False)
-        toggle_button = ttk.Checkbutton(self.console_frame, text="Show All", variable=self.show_all_enabled)
-        toggle_button.grid(column=2, row=4, sticky="w", pady=(10, 0))
-
-        # Configure column and row weights to ensure proper resizing behavior
-        self.console_frame.columnconfigure(0, weight=1)
-        self.console_frame.columnconfigure(1, weight=1)
-        self.console_frame.columnconfigure(2, weight=1)
-        self.console_frame.rowconfigure(1, weight=1)
-
-    def update_console_text(self, new_text: str) -> None:
-        if new_text[-1] != "\n":
-            new_text += "\n"
-
-        # filter esp-inernal messages
-        if not self.show_all_enabled.get() and "\r\n" in new_text and "parse" not in new_text:
-            return
-
-        new_text = new_text.replace("\r", "")
-        # print(">> ", new_text.encode())
-        self.console_text.configure(state="normal")
-        self.console_text.insert("end", new_text)
-        self.console_text.configure(state="disabled")
-        # Add auto-scrolling functionality
-        if self.auto_scroll_enabled.get():
-            self.console_text.see("end")
-
-    def clear_console_text(self) -> None:
-        self.console_text.configure(state="normal")
-        self.console_text.delete("1.0", "end")
-        self.console_text.configure(state="disabled")
-
-    def remove_console(self) -> None:
-        self.console_frame.destroy()
-
     def send_msg(self, input_data):
         if len(input_data) <= 0 or self.device is None:
             return
         if input_data[-1] != "\n":
             input_data += "\n"
         self.device.write(input_data.encode())
-        self.console_text.config(state="normal")
-        self.update_console_text(f">>> {input_data}")
-        self.console_text.config(state="disabled")
-        self.console_input.delete(0, tk.END)
-
-    def send_serial(self):
-        if self.device is not None:
-            input_data = self.console_input.get()
-            if len(input_data) <= 0:
-                return
-            if input_data == self.placeholder_text:
-                return
-            self.send_msg(input_data)
-
-        else:
-            self.console_text.config(state="normal")
-            self.update_console_text("Serial port not connected.\n")
-            self.console_text.config(state="disabled")
+        self.console.update_console_text(f">>> {input_data}")
 
     def parse_msg(self, msg):
         match_adc_voltage = self.adc_pattern.search(msg)
@@ -541,7 +541,7 @@ class CubeControlApp:
             if self.device.inWaiting() > 0:
                 data = self.device.readline().decode()
                 if self.parse_msg(data) == 0:
-                    self.update_console_text(data)
+                    self.console.update_console_text(data)
         # print("closed")
         if self.device is not None:
             self.device.close()

@@ -1,2 +1,1 @@
-
-        self.image_label = ttk.Label(
+send_serial
