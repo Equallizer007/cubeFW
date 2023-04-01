@@ -12,9 +12,9 @@ volatile uint16_t adcVoltage = 0;
 volatile bool adcFlagL = false;
 volatile bool adcFlagH = false;
 volatile bool adcResetCounterFlag = false;
-
+float lowerThr = 0, upperThr = 0;
+unsigned auto_sens = 10;
 unsigned adc_report_interval = 1000;
-unsigned adcCounterMax = 10;
 unsigned adcCounterL = 0;
 unsigned adcCounterH = 0;
 
@@ -39,13 +39,13 @@ namespace
         //Serial.println(adcVoltage2);
         if (adcVoltage2 < adcThresholdL)
         {
-            if (++adcCounterL >= adcCounterMax){
+            if (++adcCounterL >= auto_sens){
                 adcFlagL = true;
             }
         }
         else if (adcVoltage2 > adcThresholdH)
         {
-            if (++adcCounterH >= adcCounterMax){
+            if (++adcCounterH >= auto_sens){
                 adcFlagH = true;
             }
         }

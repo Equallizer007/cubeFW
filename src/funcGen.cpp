@@ -60,10 +60,10 @@ bool checkExpectedError(long pulselength)
 {
     int expError = pulselength - (pulselength / MIN_WIDTH_NS) * MIN_WIDTH_NS;
     float expErrorRatio = (float)expError / pulselength;
-    Log.notice("expError: %ins (%F)\n", expError, expErrorRatio);
+    //Log.notice("expError: %ins (%F)\n", expError, expErrorRatio);
     if (expErrorRatio > ERROR_RATIO)
     {
-        Log.error("expected pulse length error to high!");
+        Log.error("expected pulse length error to high!\n");
         return false;
     }
     return true;
@@ -126,7 +126,7 @@ unsigned getBitResolution(long freq, long onTime, long offTime)
         return (1);
     else
     {
-        Log.error("requested frequency to high!");
+        Log.error("requested frequency too high!\n");
         return 0;
     }
 }
@@ -138,7 +138,7 @@ unsigned getBitResolution(long freq, long onTime, long offTime)
 //   duty: dutycycle of the output signal
 void setOutput(unsigned long freq, unsigned bitres, unsigned duty)
 {
-    Log.notice("set freq: %l bitres %l duty: %u\n", freq, bitres, duty);
+    Log.notice("freq: %lhz bitres %l duty: %u\n", freq, bitres, duty);
     generatorAciveFlag = true;
     // Make sure outputpins are available and low
     setF1(false);
@@ -162,22 +162,22 @@ bool setFunc(unsigned long onTime, unsigned long offTime)
 {
     if (onTime >= 1000 && offTime >= 1000)
     {
-        Log.notice("set onTime: %Fmicro offTime: %Fmicro\n", onTime / 1000.0, offTime / 1000.0);
+        Log.notice("set ontime: %Fµs offtime: %Fµs\n", onTime / 1000.0, offTime / 1000.0);
     }
     else
     {
-        Log.notice("set onTime: %lns offTime: %lns\n", onTime, offTime);
+        Log.notice("set ontime: %lns offtime: %lns\n", onTime, offTime);
     }
     // Check if the onTime or offTime is 0, and set the output pin and its inverse accordingly
     if (onTime == 0)
     {
-        Log.notice("ontime is 0 -> set output off \n");
+        Log.warning("ontime is 0 -> set output off \n");
         setOutputOff();
         return true;
     }
     if (offTime == 0)
     {
-        Log.notice("offtime is 0 -> set output on \n");
+        Log.warning("offtime is 0 -> set output on \n");
         setOutputOff();
         return true;
     }
@@ -196,17 +196,17 @@ bool setFunc(unsigned long onTime, unsigned long offTime)
 
     // Calculate the frequency of the output signal
     long freq = calcFrequency(onTime, offTime);
-    Log.notice("frequency: %lhz\n", freq);
+    //Log.notice("frequency: %lhz\n", freq);
 
     // Set the bit resolution of the output signal based on the calculated frequency
     unsigned bitres = getBitResolution(freq, onTime, offTime);
-    Log.notice("bit resolution: %i\n", bitres);
+    //Log.notice("bit resolution: %i\n", bitres);
 
     // Calculate the duty cycle of the output signal
     unsigned duty = calcDuty(onTime, offTime, bitres);
     if (duty == 0)
     {
-        Log.error("dutycycle must not be 0!");
+        Log.error("dutycycle must not be 0!\n");
         return false;
     }
 
@@ -215,5 +215,3 @@ bool setFunc(unsigned long onTime, unsigned long offTime)
     activateADCinterrupt();
     return true;
 }
-
-// M100 S1500:40000

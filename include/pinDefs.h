@@ -23,4 +23,3 @@
 #define ADC_VREF 5.0                  // Reference Voltage
 #define VOLTAGE_DIVIDER_FACTOR 31.57     // Factor of the voltage divider
 #define ADC_ZERO_OFFSET 0
-#define TOUCHMODE_MIN_VOLTAGE 3.0
