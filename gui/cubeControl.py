@@ -1,3 +1,10 @@
+"""CUBEcontrol v1.0
+This is the CubeControl gui apllication designed to control the edm-mashine CUBE
+
+@author Marcus Voss mail@marcusvoss.de/marcus.voss@campus.tu-berlin.de
+@date 02.04.2023
+    
+"""
 import tkinter as tk  # Importing the Tkinter library for creating graphical user interfaces
 from tkinter import (
     ttk,
@@ -10,8 +17,6 @@ import serial.tools.list_ports  # Importing a utility to list available serial p
 import threading  # Importing the threading module for creating and managing threads
 import re  # Importing the regular expressions module for advanced string manipulation
 import os  # Importing the OS module for interacting with the operating system
-
-
 
 
 # current file path to allow the app to be called from outside its own workspace
