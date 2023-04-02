@@ -12,6 +12,8 @@ import re  # Importing the regular expressions module for advanced string manipu
 import os  # Importing the OS module for interacting with the operating system
 
 
+
+
 # current file path to allow the app to be called from outside its own workspace
 current_path = os.path.dirname(os.path.realpath(__file__))
 
@@ -461,7 +463,15 @@ class CubeControlApp:
                 1,
                 {"sticky": "nesw", "padx": (15, 15)},
             ),
-            ("generator_auto_button", ttk.Button, "Auto", 2, 1, {"sticky": "nesw"}),
+            (
+                "generator_auto_button",
+                ttk.Button,
+                "Auto ON",
+                1,
+                0,
+                {"sticky": "nesw", "padx": (15, 15), "pady": (0, 10)},
+            ),
+            ("generator_auto_disable_button", ttk.Button, "Auto OFF", 2, 0, {"sticky": "nesw", "pady": (0, 10)}),
         ]
 
         commands = [
@@ -473,6 +483,7 @@ class CubeControlApp:
             lambda: self.send_msg(
                 f"M103 {self.config_window.get('lower_thr')} {self.config_window.get('upper_thr')} {self.config_window.get('auto_sens')} ;auto mode"
             ),
+            lambda: self.send_msg("M104 ;auto off"),
         ]
 
         for i, (name, widget_class, text, col, row, options) in enumerate(widget_settings):
