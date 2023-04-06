@@ -16,13 +16,12 @@ void cmd_G1(MyCommandParser::Argument *args, char *response)
     Log.notice("-> G1 %s\n", input);
     if (toupper(input[0]) != 'Z')
     {
-        Log.error("Only Z-Axis is supported! \n");
+        Log.error("Only Z-Axis is supported!\n");
         return;
     }
     double coord = strtod(input + 1, NULL);
     Log.notice("Read Parameter: %D\n", coord);
     setNewTargetPosition(coord);
-
     // strlcpy(response, "success", MyCommandParser::MAX_RESPONSE_SIZE);
 }
 
@@ -36,8 +35,9 @@ void cmd_G28(MyCommandParser::Argument *args, char *response)
 // enable absolute positioning
 void cmd_G90(MyCommandParser::Argument *args, char *response)
 {
-    if (homingFlag == true){
-        Log.error("Can't do this during homing...");
+    if (homingFlag == true)
+    {
+        Log.error("Can't do this during homing...\n");
         return;
     }
     Log.notice("-> G90 enable absolute Positioning\n");
@@ -47,8 +47,9 @@ void cmd_G90(MyCommandParser::Argument *args, char *response)
 // enable relative positioning
 void cmd_G91(MyCommandParser::Argument *args, char *response)
 {
-    if (homingFlag == true){
-        Log.error("Can't do this during homing...");
+    if (homingFlag == true)
+    {
+        Log.error("Can't do this during homing...\n");
         return;
     }
     Log.notice("-> G91 enable relative Positioning\n");
@@ -58,7 +59,7 @@ void cmd_G91(MyCommandParser::Argument *args, char *response)
 // reset ESP
 void cmd_M0(MyCommandParser::Argument *args, char *response)
 {
-    Log.notice("Reset....");
+    Log.notice("Reset....\n");
     delay(10);
     ESP.restart();
 }
@@ -68,8 +69,8 @@ void cmd_M1(MyCommandParser::Argument *args, char *response)
 {
     uint val = args[0].asUInt64;
     Log.info("Set new report interval to %dms\n");
-    //adc_report_interval = val;
-    //position_report_interval = val;
+    adc_report_interval = val;
+    position_report_interval = val;
 }
 
 // enable stepper
@@ -105,51 +106,61 @@ void cmd_M21(MyCommandParser::Argument *args, char *response)
 // set PWM out
 void cmd_M100(MyCommandParser::Argument *args, char *response)
 {
-    if (homingFlag == true){
-        Log.error("Can't do this during homing...");
+    if (homingFlag == true)
+    {
+        Log.error("Can't do this during homing...\n");
         return;
     }
-    Log.notice("-> M100 set PWM on");
     unsigned long onTime = args[0].asUInt64;
     unsigned long offTime = args[1].asUInt64;
-    Log.notice("parsed: onTime:%u offTime:%u\n",onTime,offTime);
+    //Log.notice("-> M100 set PWM with onTime:%u offTime:%u\n", onTime, offTime);
     setFunc(onTime, offTime);
 }
 
 // set PWM off
 void cmd_M101(MyCommandParser::Argument *args, char *response)
 {
-    if (homingFlag == true){
-        Log.error("Can't do this during homing...");
+    if (homingFlag == true)
+    {
+        Log.error("Can't do this during homing...\n");
         return;
     }
-    if (autoModeFlag == true){
-        Log.error("Can't do this during auto mode...");
+    if (autoModeFlag == true)
+    {
+        Log.error("Can't do this during auto mode...\n");
         return;
     }
-    Log.notice("-> M101 set PWM off");
+    Log.notice("-> M101 set PWM off\n");
     setOutputOff();
 }
 
 // touch mode
 void cmd_M102(MyCommandParser::Argument *args, char *response)
 {
-    if (homingFlag == true){
-        Log.error("Can't do this during homing...");
+    if (homingFlag == true)
+    {
+        Log.error("Can't do this during homing...\n");
         return;
     }
-    if (autoModeFlag == true){
-        Log.error("Can't do this during auto mode...");
+    if (autoModeFlag == true)
+    {
+        Log.error("Can't do this during auto mode...\n");
         return;
     }
-    Log.notice("-> M102 touch mode:...");
+    float upperThr = args[0].asDouble;
+    float lowerThr = args[1].asDouble;
+    Log.notice("-> M102 touch mode with upper: %F, lower: %F\n", upperThr, lowerThr);
     setOutputOff();
     setF1(true);
     setF2(true);
     delay(100);
-    uint16_t minVoltage = calcADCInputVoltage(TOUCHMODE_MIN_VOLTAGE);
-    if (adcVoltage <= minVoltage){
-        Log.error("Can't do touch mode: ADC Voltage too low!");
+    adcThresholdL = calcADCInputVoltage(lowerThr);
+    adcThresholdH = calcADCInputVoltage(upperThr);
+    if (adcVoltage <= adcThresholdL)
+    {
+        Log.error("Can't do touch mode: ADC Voltage too low!\n");
+        setF1(false);
+        setF2(false);
         return;
     }
     touchModeFlag = true;
@@ -158,35 +169,46 @@ void cmd_M102(MyCommandParser::Argument *args, char *response)
 // auto mode
 void cmd_M103(MyCommandParser::Argument *args, char *response)
 {
-    if (homingFlag == true){
-        Log.error("Can't do this during homing...");
+    if (homingFlag == true)
+    {
+        Log.error("Can't do this during homing...\n");
         return;
     }
-    if (touchModeFlag == true){
-        Log.error("Can't do this during touch mode...");
+    if (touchModeFlag == true)
+    {
+        Log.error("Can't do this during touch mode...\n");
         return;
     }
-    if (generatorAciveFlag == false){
-        Log.error("Generator must be active for auto Mode...");
+    if (generatorAciveFlag == false)
+    {
+        Log.error("Generator must be active for auto Mode...\n");
         return;
     }
-    Log.notice("-> M103 start auto mode:...");
+    float upperThr = args[0].asDouble;
+    float lowerThr = args[1].asDouble;
+    auto_sens = args[2].asUInt64;
+    Log.notice("-> M103 start auto mode with upper: %F, lower: %F, sens: %d\n",  upperThr, lowerThr, auto_sens);
+    adcThresholdL = calcADCInputVoltage(lowerThr);
+    adcThresholdH = calcADCInputVoltage(upperThr);
     delay(100);
+    
     autoModeFlag = true;
 }
 
 // auto mode off
 void cmd_M104(MyCommandParser::Argument *args, char *response)
 {
-    if (homingFlag == true){
-        Log.error("Can't do this during homing...");
+    if (homingFlag == true)
+    {
+        Log.error("Can't do this during homing...\n");
         return;
     }
-    if (touchModeFlag == true){
-        Log.error("Can't do this during touch mode...");
+    if (touchModeFlag == true)
+    {
+        Log.error("Can't do this during touch mode...\n");
         return;
     }
-    Log.notice("-> M103 stop auto mode :...");
+    Log.notice("-> M103 stop auto mode :...\n");
     autoModeFlag = false;
 }
 
@@ -210,8 +232,8 @@ void registerCommands()
     parser.registerCommand("M21", "u", &cmd_M21);
     parser.registerCommand("M100", "uu", &cmd_M100);
     parser.registerCommand("M101", "", &cmd_M101);
-    parser.registerCommand("M102", "", &cmd_M102);
-    parser.registerCommand("M103", "", &cmd_M103);
+    parser.registerCommand("M102", "dd", &cmd_M102);
+    parser.registerCommand("M103", "ddu", &cmd_M103);
     parser.registerCommand("M104", "", &cmd_M104);
 }
 
@@ -223,8 +245,8 @@ void readSerial()
         size_t lineLength = Serial.readBytesUntil('\n', line, 127);
         line[lineLength] = '\0';
 
-        // Find the index of the ';' comment character 
-        char* semicolonPtr = strchr(line, ';');
+        // Find the index of the ';' comment character
+        char *semicolonPtr = strchr(line, ';');
         if (semicolonPtr != nullptr)
         {
             // Overwrite the ';' character with a null terminator, effectively truncating the string
@@ -254,9 +276,9 @@ void serialParserInit()
     xTaskCreatePinnedToCore(
         serialParserTask,   /* Task function. */
         "serialParserTask", /* String with name of task. */
-        10000,     /* Stack size in bytes. */
-        NULL,      /* Parameter passed as input of the task */
-        1,         /* Priority of the task. */
-        NULL,      /* Task handle. */
-        1);        /* which core to run */
+        10000,              /* Stack size in bytes. */
+        NULL,               /* Parameter passed as input of the task */
+        1,                  /* Priority of the task. */
+        NULL,               /* Task handle. */
+        1);                 /* which core to run */
 }

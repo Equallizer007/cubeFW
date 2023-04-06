@@ -1,14 +1,27 @@
-import tkinter as tk
-from tkinter import ttk, messagebox, StringVar
-import sv_ttk
-import serial.tools.list_ports
-import serial
-import threading
-import re
-import os
+"""CUBEcontrol v1.0
+This is the CubeControl gui apllication designed to control the edm-mashine CUBE
+
+@author Marcus Voss mail@marcusvoss.de/marcus.voss@campus.tu-berlin.de
+@date 02.04.2023
+    
+"""
+import tkinter as tk  # Importing the Tkinter library for creating graphical user interfaces
+from tkinter import (
+    ttk,
+    messagebox,
+    StringVar,
+)  # Importing additional Tkinter classes for themed widgets, message boxes, and string variables
+import sv_ttk  # Importing a custom module for additional themed Tkinter widgets (assuming it's a custom module)
+import serial  # Importing the PySerial library for communicating with serial devices
+import serial.tools.list_ports  # Importing a utility to list available serial ports
+import threading  # Importing the threading module for creating and managing threads
+import re  # Importing the regular expressions module for advanced string manipulation
+import os  # Importing the OS module for interacting with the operating system
+
 
 # current file path to allow the app to be called from outside its own workspace
 current_path = os.path.dirname(os.path.realpath(__file__))
+
 
 class Console:
     def __init__(self, app, parent):
@@ -24,14 +37,14 @@ class Console:
         console_label.grid(column=0, row=0, columnspan=3, sticky="w")
 
         self.console_text = tk.Text(self.console_frame, wrap=tk.WORD, state="disabled", font=("Arial", 10))
+        self.console_text.tag_config("send", foreground="green")
+        self.console_text.tag_config("error", background="yellow", foreground="red")
         self.console_text.grid(column=0, row=1, columnspan=3, sticky="nsew")
 
         scrollbar = ttk.Scrollbar(self.console_frame, orient="vertical", command=self.console_text.yview)
         scrollbar.grid(column=3, row=1, sticky="ns")
         self.console_text.configure(yscrollcommand=scrollbar.set)
-
         self.console_frame.grid_rowconfigure(2, weight=1)
-
         self.placeholder_text = "Type your command here..."
 
         self.console_input = ttk.Entry(self.console_frame, font=("Arial", 12))
@@ -68,9 +81,8 @@ class Console:
         self.console_frame.columnconfigure(1, weight=1)
         self.console_frame.columnconfigure(2, weight=1)
         self.console_frame.rowconfigure(1, weight=1)
-        
 
-    def update_console_text(self, new_text: str) -> None:
+    def update_console_text(self, new_text: str, send=False) -> None:
         if new_text[-1] != "\n":
             new_text += "\n"
 
@@ -81,7 +93,12 @@ class Console:
         new_text = new_text.replace("\r", "")
         # print(">> ", new_text.encode())
         self.console_text.configure(state="normal")
-        self.console_text.insert("end", new_text)
+        if send:
+            self.console_text.insert("end", new_text, "send")
+        elif "error" in new_text.lower():
+            self.console_text.insert("end", new_text, "error")
+        else:
+            self.console_text.insert("end", new_text)
         self.console_text.configure(state="disabled")
         # Add auto-scrolling functionality
         if self.auto_scroll_enabled.get():
@@ -142,6 +159,9 @@ class ConfigWindow:
 
         # Create the config dictionary with StringVars for each configuration value
         self.config = {k: [v[0], StringVar(value=str(v[0])), v[1], v[2]] for k, v in default_config.items()}
+
+    def get(self, var):
+        return self.config[var][0]
 
     def open(self):
         # Check if the window already exists, and if so, destroy it
@@ -393,7 +413,9 @@ class CubeControlApp:
             ),
             lambda: self.send_msg("G28 ;home"),
             lambda: self.send_msg("M0 ;restart"),
-            lambda: self.send_msg("M102 ;touchmode"),
+            lambda: self.send_msg(
+                f"M102 {self.config_window.get('lower_thr')} {self.config_window.get('upper_thr')} ;touchmode"
+            ),
         ]
 
         # Create and grid labels and buttons
@@ -446,14 +468,27 @@ class CubeControlApp:
                 1,
                 {"sticky": "nesw", "padx": (15, 15)},
             ),
-            ("generator_auto_button", ttk.Button, "Auto", 2, 1, {"sticky": "nesw"}),
+            (
+                "generator_auto_button",
+                ttk.Button,
+                "Auto ON",
+                1,
+                0,
+                {"sticky": "nesw", "padx": (15, 15), "pady": (0, 10)},
+            ),
+            ("generator_auto_disable_button", ttk.Button, "Auto OFF", 2, 0, {"sticky": "nesw", "pady": (0, 10)}),
         ]
 
         commands = [
             self.config_window.open,
-            None,
+            lambda: self.send_msg(
+                f"M100 {self.config_window.get('ontime')} {self.config_window.get('offtime')} ;enable generator"
+            ),
             lambda: self.send_msg("M101 ;disable generator"),
-            lambda: self.send_msg("M103 ;auto mode"),
+            lambda: self.send_msg(
+                f"M103 {self.config_window.get('lower_thr')} {self.config_window.get('upper_thr')} {self.config_window.get('auto_sens')} ;auto mode"
+            ),
+            lambda: self.send_msg("M104 ;auto off"),
         ]
 
         for i, (name, widget_class, text, col, row, options) in enumerate(widget_settings):
@@ -517,7 +552,7 @@ class CubeControlApp:
         if input_data[-1] != "\n":
             input_data += "\n"
         self.device.write(input_data.encode())
-        self.console.update_console_text(f">>> {input_data}")
+        self.console.update_console_text(f">>> {input_data}", True)
 
     def parse_msg(self, msg):
         match_adc_voltage = self.adc_pattern.search(msg)
@@ -543,7 +578,6 @@ class CubeControlApp:
                 data = self.device.readline().decode()
                 if self.parse_msg(data) == 0:
                     self.console.update_console_text(data)
-        # print("closed")
         if self.device is not None:
             self.device.close()
         self.device = None

@@ -41,10 +41,10 @@ void setNewTargetPosition(double newPos)
     }
     if (newSteps < 0)
     {
-        Log.error("Target position can't be negative!");
+        Log.error("Target position can't be negative!\n");
         return;
     }
-    Log.info("New target steps: %u", newSteps);
+    Log.info("New target steps: %u\n", newSteps);
     targetSteps = newSteps;
 }
 
@@ -187,8 +187,8 @@ bool stepperHome(bool dir)
 void touchMode(){
     stepperEnable();
     stepper.setAccelerationInMillimetersPerSecondPerSecond(STEPPER_ACC_DEFAULT);
-    int16_t minVoltage = calcADCInputVoltage(TOUCHMODE_MIN_VOLTAGE);
-    while (adcVoltage > minVoltage)
+    adcThresholdL;
+    while (adcVoltage > adcThresholdL)
     {
         movementReport();
         stepper.moveRelativeInSteps(1);
@@ -197,7 +197,7 @@ void touchMode(){
     targetSteps = encoder.getCount();
     delay(1000);
     Log.trace("move back...\n");
-    while (adcVoltage < minVoltage){
+    while (adcVoltage < adcThresholdL){
         movementReport();
         stepper.moveRelativeInSteps(-1);
         delay(1);
@@ -229,7 +229,7 @@ void autoMode(){
         }
     }
     targetSteps = encoder.getCount();
-    Serial.println("end auto");
+    Serial.println("end auto mode\n");
 }
 
 void movementReport(){
