@@ -217,7 +217,7 @@ class CubeControlApp:
         self.update_serial_handle = None
 
         self.app = tk.Tk()
-        self.app.iconbitmap(current_path + "/img/icon.ico")
+        #self.app.iconbitmap(current_path + "/img/icon.ico")
         self.app.title("CUBEcontrol --- version 1.0")
         self.app.geometry("800x500")
         self.app.resizable(False, False)
@@ -345,6 +345,7 @@ class CubeControlApp:
         self.select_device_label.grid()
         self.console.remove_console()
         self.remove_control_widgets()
+        self.device = None
 
     def fill_movement_frame(self, parent):
         # Labels and buttons settings
