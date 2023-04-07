@@ -147,8 +147,8 @@ void cmd_M102(MyCommandParser::Argument *args, char *response)
         Log.error("Can't do this during auto mode...\n");
         return;
     }
-    float upperThr = args[0].asDouble;
-    float lowerThr = args[1].asDouble;
+    float upperThr = args[1].asDouble;
+    float lowerThr = args[0].asDouble;
     Log.notice("-> M102 touch mode with upper: %F, lower: %F\n", upperThr, lowerThr);
     setOutputOff();
     setF1(true);
@@ -184,8 +184,8 @@ void cmd_M103(MyCommandParser::Argument *args, char *response)
         Log.error("Generator must be active for auto Mode...\n");
         return;
     }
-    float upperThr = args[0].asDouble;
-    float lowerThr = args[1].asDouble;
+    float upperThr = args[1].asDouble;
+    float lowerThr = args[0].asDouble;
     auto_sens = args[2].asUInt64;
     Log.notice("-> M103 start auto mode with upper: %F, lower: %F, sens: %d\n",  upperThr, lowerThr, auto_sens);
     adcThresholdL = calcADCInputVoltage(lowerThr);

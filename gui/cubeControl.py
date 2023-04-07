@@ -237,7 +237,7 @@ class CubeControlApp:
         self.update_serial_handle = None
 
         self.app = tk.Tk()
-        self.app.iconbitmap(current_path + "/img/icon.ico")
+        #self.app.iconbitmap(current_path + "/img/icon.ico")
         self.app.title("CUBEcontrol --- version 1.0")
         self.app.geometry("800x500")
         self.app.resizable(False, False)
@@ -353,6 +353,7 @@ class CubeControlApp:
             self.console.update_console_text(f"Connected to {self.device.port} @  baudrate {self.device.baudrate}")
             # send intial messages
             self.send_msg("M0 ;restart device")
+            self.send_msg("G91 ; relative positioning")
             self.send_msg("M1 500 ;set report interval to 500ms")
             self.serial_thread.start()
 
