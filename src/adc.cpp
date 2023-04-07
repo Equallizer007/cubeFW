@@ -74,6 +74,10 @@ void adcTask(void *param)
     {
         adcVoltage = _readADC();
         if (millis()-ttimer > adc_report_interval){
+            if (adcVoltage == 0){
+                //ADC should never read exact 0
+                Log.error("ADC reads 0V: This should never happen! Check the connection!\n");
+            }
             Serial.printf("<ADC> raw:%d calc:%.2fV \n",adcVoltage, calcVoltage(adcVoltage));
             ttimer = millis();
         }
