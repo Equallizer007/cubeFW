@@ -1,6 +1,6 @@
 # cubeFW
 ## Einführung
-cubeFW ist ein Projekt im Rahmen einer Masterarbeit, das sich mit der Entwicklung eines Versuchsstandes für Mikrofunkenerosion namens CUBE befasst. Das Projekt besteht aus zwei Hauptkomponenten: der Firmware für einen ESP32-Mikrocontroller und einer zugehörigen GUI-Anwendung (CUBEcontrol) für die Steuerung des Versuchsstandes. Die Firmware ist verantwortlich für die Steuerung der Hardware und Elektronik des Versuchsstandes, während die GUI-Anwendung in Python und Tkinter geschrieben ist und über eine serielle Schnittstelle mit der ESP32-Firmware unter Verwendung von Gcodes kommuniziert.
+cubeFW ist ein Projekt im Rahmen meiner Masterarbeit, das sich mit der Entwicklung eines Versuchsstandes für Mikrofunkenerosion namens CUBE befasst. Das Projekt besteht aus zwei Hauptkomponenten: der Firmware für einen ESP32-Mikrocontroller und einer zugehörigen GUI-Anwendung (CUBEcontrol) für die Steuerung des Versuchsstandes. Die Firmware ist verantwortlich für die Steuerung der Hardware und Elektronik des Versuchsstandes, während die GUI-Anwendung in Python und Tkinter geschrieben ist und über eine serielle Schnittstelle mit der ESP32-Firmware unter Verwendung von Gcodes kommuniziert.
 
 ## Komponenten
 ### ESP32 Firmware
