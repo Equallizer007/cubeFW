@@ -353,6 +353,7 @@ class CubeControlApp:
             self.console.update_console_text(f"Connected to {self.device.port} @  baudrate {self.device.baudrate}")
             # send intial messages
             self.send_msg("M0 ;restart device")
+            self.send_msg("G91 ; relative positioning")
             self.send_msg("M1 500 ;set report interval to 500ms")
             self.serial_thread.start()
 
