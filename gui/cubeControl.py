@@ -576,7 +576,12 @@ class CubeControlApp:
     def read_serial(self):
         while not self.stop_serial and self.device is not None:
             if self.device.inWaiting() > 0:
-                data = self.device.readline().decode()
+                data = None
+                try:
+                    data = self.device.readline().decode()
+                except UnicodeDecodeError as e:
+                    #print(e)
+                    pass
                 if self.parse_msg(data) == 0:
                     self.console.update_console_text(data)
         if self.device is not None:

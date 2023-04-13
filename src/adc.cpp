@@ -63,6 +63,7 @@ void activateADCinterrupt()
 
 void adcTask(void *param)
 {
+    static int adc0V = 0;
     Log.trace("adcTask started on core %d ...\n", xPortGetCoreID());
     Log.trace("thresholdH: %d thresholdL: %d\n", adcThresholdH, adcThresholdL);
     SPI_ADC.begin();
@@ -73,14 +74,20 @@ void adcTask(void *param)
     for (;;)
     {
         adcVoltage = _readADC();
-        if (millis()-ttimer > adc_report_interval){
-            if (adcVoltage == 0){
-                //ADC should never read exact 0
-                Log.error("ADC reads 0V: This should never happen! Check the connection!\n");
+        if (adcVoltage == 0){
+                //ADC should never read exact 0 multiple times
+                if (++adc0V > 3){
+                    Log.error("ADC reads 0V multiple times: This should never happen! Check the connection!\n");
+                }
             }
+            else{
+                adc0V = 0;
+            }
+        if (millis()-ttimer > adc_report_interval){
             Serial.printf("<ADC> raw:%d calc:%.2fV \n",adcVoltage, calcVoltage(adcVoltage));
             ttimer = millis();
         }
+        vTaskDelay(100);
     }
     Log.trace("adcTask closed ...\n");
 }

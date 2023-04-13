@@ -227,6 +227,7 @@ void autoMode(){
             stepper.moveRelativeInSteps(-10);
             adcResetCounterFlag = true;
         }
+        vTaskDelay(10);
     }
     targetSteps = encoder.getCount();
     Serial.println("end auto mode\n");

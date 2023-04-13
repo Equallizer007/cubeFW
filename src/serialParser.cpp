@@ -153,7 +153,7 @@ void cmd_M102(MyCommandParser::Argument *args, char *response)
     setOutputOff();
     setF1(true);
     setF2(true);
-    delay(100);
+    delay(1000);
     adcThresholdL = calcADCInputVoltage(lowerThr);
     adcThresholdH = calcADCInputVoltage(upperThr);
     if (adcVoltage <= adcThresholdL)
