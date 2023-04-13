@@ -76,7 +76,7 @@ void adcTask(void *param)
         adcVoltage = _readADC();
         if (adcVoltage == 0){
                 //ADC should never read exact 0 multiple times
-                if (++adc0V > 3){
+                if (++adc0V > 5){
                     Log.error("ADC reads 0V multiple times: This should never happen! Check the connection!\n");
                 }
             }
